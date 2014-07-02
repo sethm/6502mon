@@ -21,11 +21,11 @@ START:		LDA	#$00	; Set zero flag
 		BEQ	*	; Loop forever
 
 ;;************************************************************************
-;;
+;; Reset and Interrupt vectors
 ;;************************************************************************
 .segment	"VECTORS"
 		.org	$FFFA
 
-		.word	START
-		.word	START
-		.word	START
+		.word	START	; NMI vector
+		.word	START	; Reset vector
+		.word	START	; IRQ vector
