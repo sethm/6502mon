@@ -28,14 +28,19 @@
 
 
 START:
-INITIO:	LDA	#$1D		; Set ACIA to 8N1, 9600 baud
+
+IOINIT: LDA	#$1D		; Set ACIA to 8N1, 9600 baud
 	STA	IOCTL		;   ($1D = 8 bits, 1 stop bit, 9600)
 	LDA	#$0B		;   ($0B = no parity, irq disabled)
 	STA	IOCMD		;
 
-A_LOOP:	LDA	#'@'		; Print "@" to the terminal, forever.
-	JSR	COUT		; Call COUT
-	BNE	A_LOOP		; Accumulator is "@", so not 0 -- loop.
+PRSTR:	LDX	#$00		; Set the X index to 0
+	
+NXTCHR: LDA	HELLO,X		; Load character pointed to by X
+	BEQ	PRSTR		; If it's == 0, we're done - loop!
+	JSR	COUT		; If we're not done, Call COUT
+	INX			; Point to the next character
+	JMP	NXTCHR		;
 
 ;;;
 ;;; Print the character in the Accumulator to the ACIA's output
@@ -45,9 +50,15 @@ COUT:	PHA			; Save accumulator
 @loop:	LDA	IOST		; Is TX register empty?
 	AND	#$10
 	BEQ	@loop		; No, wait for empty
-	PLA			; Yes, restor char & print
+	PLA			; Yes, restore char & print
 	STA	IORW
 	RTS			; Return
+
+;;; ----------------------------------------------------------------------
+;;; Data
+;;; ----------------------------------------------------------------------
+
+HELLO:	.byte	"HELLO, 6502 WORLD! ",0
 
 ;;;************************************************************************
 ;;; Reset and Interrupt vectors
