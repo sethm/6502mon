@@ -16,12 +16,12 @@
 ;;;
 ;;; Modifies: Accumulator, STRLO, STRHI
 ;;;
-.macro		STR	ADDR
-		LDA	#<ADDR	; Grab the low byte of the address
-		STA	STRLO
-		LDA	#>ADDR	; ... and the high byte
-		STA	STRHI
-		JSR	STOUT	; then call STOUT.
+.macro	STR	ADDR
+	LDA	#<ADDR		; Grab the low byte of the address
+	STA	STRLO
+	LDA	#>ADDR		; ... and the high byte
+	STA	STRHI
+	JSR	STOUT		; then call STOUT.
 .endmacro
 
 
