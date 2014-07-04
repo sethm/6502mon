@@ -2,6 +2,27 @@
 ;;; Retrochallenge Summer 2014
 ;;; 6502 ROM Monitor
 ;;;
+;;; Last Updated: 2014-JUL-03
+;;;
+
+;;;************************************************************************
+;;; Macro Definitions.
+;;;************************************************************************
+
+;;;
+;;; STR <ADDR>
+;;;
+;;; Print out the null-terminated string located at address <ADDR>
+;;;
+;;; Modifies: Accumulator, STRLO, STRHI
+;;;
+.macro		STR	ADDR
+		LDA	#<ADDR	; Grab the low byte of the address
+		STA	STRLO
+		LDA	#>ADDR	; ... and the high byte
+		STA	STRHI
+		JSR	STOUT	; then call STOUT.
+.endmacro
 
 
 ;;;************************************************************************
@@ -10,6 +31,16 @@
 ;;;************************************************************************
 .segment "CODE"
 	.org	$C000
+
+;;; ----------------------------------------------------------------------
+;;; Memory Definitions
+;;; ----------------------------------------------------------------------
+
+;;; Zero Page
+	STRLO	= $20		; Low byte of STRING (used by STR macro)
+	STRHI	= $21		; Hi byte of STRING (used by STR macro)
+
+;;; Other
 
 ;;; ----------------------------------------------------------------------
 ;;; IO Addresses
@@ -26,7 +57,6 @@
 .segment "MONITOR"
 	.org	$FB00
 
-
 START:
 
 IOINIT: LDA	#$1D		; Set ACIA to 8N1, 9600 baud
@@ -34,17 +64,13 @@ IOINIT: LDA	#$1D		; Set ACIA to 8N1, 9600 baud
 	LDA	#$0B		;   ($0B = no parity, irq disabled)
 	STA	IOCMD		;
 
-PRSTR:	LDX	#$00		; Set the X index to 0
-	
-NXTCHR: LDA	HELLO,X		; Load character pointed to by X
-	BEQ	PRSTR		; If it's == 0, we're done - loop!
-	JSR	COUT		; If we're not done, Call COUT
-	INX			; Point to the next character
-	JMP	NXTCHR		;
+AGAIN:	STR	HELLO		; Call STR macro...
+	JMP	AGAIN		; ... and do it again, forever
 
-;;;
+;;; ----------------------------------------------------------------------
 ;;; Print the character in the Accumulator to the ACIA's output
-;;;
+;;; ----------------------------------------------------------------------
+
 
 COUT:	PHA			; Save accumulator
 @loop:	LDA	IOST		; Is TX register empty?
@@ -53,6 +79,18 @@ COUT:	PHA			; Save accumulator
 	PLA			; Yes, restore char & print
 	STA	IORW
 	RTS			; Return
+
+;;; ----------------------------------------------------------------------
+;;; Print the null-terminated string located at STRHI,STRLO
+;;; ----------------------------------------------------------------------
+
+STOUT:	LDY	#$00		; Initialize string pointer
+@loop:	LDA	(STRLO),Y	; Get character
+	BEQ	@done		; If char == 0, we're done
+	JSR	COUT		; Otherwise, print it
+	INY			; Increment pointer
+	BNE	@loop		; Continue
+@done:	RTS			; Return
 
 ;;; ----------------------------------------------------------------------
 ;;; Data
