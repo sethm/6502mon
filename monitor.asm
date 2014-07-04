@@ -43,6 +43,14 @@
 ;;; Other
 
 ;;; ----------------------------------------------------------------------
+;;; Constants
+;;; ----------------------------------------------------------------------
+
+	CR	= $0A
+	LF	= $0D
+	PROMPT	= '*'
+
+;;; ----------------------------------------------------------------------
 ;;; IO Addresses
 ;;; ----------------------------------------------------------------------
 
@@ -57,15 +65,30 @@
 .segment "MONITOR"
 	.org	$FB00
 
-START:
+START:	CLI
+	CLD
 
 IOINIT: LDA	#$1D		; Set ACIA to 8N1, 9600 baud
 	STA	IOCTL		;   ($1D = 8 bits, 1 stop bit, 9600)
 	LDA	#$0B		;   ($0B = no parity, irq disabled)
 	STA	IOCMD		;
 
-AGAIN:	STR	HELLO		; Call STR macro...
-	JMP	AGAIN		; ... and do it again, forever
+	STR	BANNR		; Print out our welcome banner
+
+PRLOOP:	LDA	#PROMPT		; Print the prompt and a space
+	JSR	COUT
+NXTCHR:	JSR	CIN
+	JSR	COUT		; Just echo it
+	LDA	#CR
+	JSR	COUT		; Then echo CR+LF
+	LDA	#LF
+	JSR	COUT
+	BNE	PRLOOP		; and wait for next input
+
+
+;;;  Catch-all infinite loop
+END:	LDA	#$00		; Infinite Loop
+	BEQ	*
 
 ;;; ----------------------------------------------------------------------
 ;;; Print the character in the Accumulator to the ACIA's output
@@ -79,6 +102,25 @@ COUT:	PHA			; Save accumulator
 	PLA			; Yes, restore char & print
 	STA	IORW
 	RTS			; Return
+
+;;; ----------------------------------------------------------------------
+;;; Read a character from the ACIA and put it into the accumulator
+;;; ----------------------------------------------------------------------
+	
+CIN:	LDA	IOST
+	AND	#$08		; Is RX register full?
+	BEQ	CIN		; No, wait for it to fill up.
+	LDA	IORW		; Yes, load character.
+	;;
+	;; If the char is 'a' to 'z', inclusive, mask to upper case.
+	;;
+	CMP	#'a'		; < 'a'?
+	BCC	@done		; Yes, done.
+	CMP	#'{'		; >= '{'?
+	BCS	@done		; Yes, done.
+	AND	#$5f		; No, convert lower case -> upper case,
+@done:	RTS			; and return.
+
 
 ;;; ----------------------------------------------------------------------
 ;;; Print the null-terminated string located at STRHI,STRLO
@@ -96,7 +138,7 @@ STOUT:	LDY	#$00		; Initialize string pointer
 ;;; Data
 ;;; ----------------------------------------------------------------------
 
-HELLO:	.byte	"HELLO, 6502 WORLD! ",0
+BANNR:	.byte	"RETROCHALLENGE 2014 ROM MONITOR",CR,LF,0
 
 ;;;************************************************************************
 ;;; Reset and Interrupt vectors
