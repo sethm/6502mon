@@ -73,18 +73,38 @@
 
 START:	CLI
 	CLD
+	LDX	#$FF		; Init stack pointer to $FF
+	TXS
 
+	;;
+	;; Initialize IO
+	;;
 IOINIT: LDA	#$1D		; Set ACIA to 8N1, 9600 baud
 	STA	IOCTL		;   ($1D = 8 bits, 1 stop bit, 9600)
 	LDA	#$0B		;   ($0B = no parity, irq disabled)
 	STA	IOCMD		;
 
-	STR	BANNR		; Print out welcome banner
+	;;
+	;; Hard Reset. Initialize page 2.
+	;;
+HRESET:	LDA	#$02		; Clear page 2
+	STA	$01
+	LDA	#$00
+	STA	$00
+	TAY			; Pointer into page 2
+@loop:	DEY
+	STA	($00),Y
+	BNE	@loop
+
+	;;
+	;; Start the monitor by printing a welcome message.
+	;;
+	STR	BANNR
+
 
 	;;
 	;; Eval Loop - Get input, act on it, return here.
 	;;
-
 EVLOOP:	LDA	#CR
 	JSR	COUT
 	LDA	#LF
@@ -107,34 +127,37 @@ EVLOOP:	LDA	#CR
 
 NXTCHR:	JSR	CIN		; Get a character
 	CMP	#CR		; Is it a carriage-return?
-	BEQ	EVLOOP		; Done (for now just start over)
+	BEQ	PARSE		; Done. Parse buffer.
 	CMP	#LF		; Is it a line-feed?
-	BEQ	EVLOOP		; Done (for now just start over)
+	BEQ	PARSE		; Done. Parse buffer.
 	CMP	#BS		; Is it a backspace?
 	BEQ	BSPACE		; Yes, handle it.
-
-	;; It wasn't a CR, LF, or backspace.
-	JSR	COUT
-
+	;; It wasn't a CR,LF, or BS
+	JSR	COUT		; Echo it
 	STA	IBUF,Y		; Store the character into $200,Y
 	INY			; Move the pointer
 	BNE	NXTCHR		; Go get the next character.
 
+	;;
 	;; Handle a backspace by decrementing Y (the IBUF pointer)
 	;; unless Y is already 0.
-
-BSPACE:	CPY	#0
-	;; If Y is already 0, don't do anything
-	BEQ	NXTCHR
+	;;
+BSPACE:	CPY	#0	       ; If Y is already 0, don't
+	BEQ	NXTCHR	       ;   do anything.
 	DEY
 	LDA	#BS
 	JSR	COUT
 	JMP	NXTCHR
 
+	;;
+	;; Parse the command currently in the IBUF, with length
+	;; stored in Y
+	;;
+PARSE:	TYA			; Save Y to IBLEN
+	STA	IBLEN
+	JMP	EVLOOP		; Return to the eval loop.
 
-;;;  Catch-all infinite loop
-END:	LDA	#$00		; Infinite Loop
-	BEQ	*
+	BRK			; Catch-all for emulator debugging.
 
 ;;; ----------------------------------------------------------------------
 ;;; Print the character in the Accumulator to the ACIA's output
