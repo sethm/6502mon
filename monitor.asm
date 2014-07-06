@@ -36,11 +36,11 @@
 ;;; Memory Definitions
 ;;; ----------------------------------------------------------------------
 
-;;; Zero Page
 	STRLO	= $20		; Low byte of STRING (used by STR macro)
 	STRHI	= $21		; Hi byte of STRING (used by STR macro)
+	IBLEN	= $22		; Input buffer length
 
-;;; Other
+	IBUF	= $0200		; Input buffer base
 
 ;;; ----------------------------------------------------------------------
 ;;; Constants
@@ -48,6 +48,8 @@
 
 	CR	= $0A
 	LF	= $0D
+	BS	= $08
+
 	PROMPT	= '*'
 
 ;;; ----------------------------------------------------------------------
@@ -77,17 +79,57 @@ IOINIT: LDA	#$1D		; Set ACIA to 8N1, 9600 baud
 	LDA	#$0B		;   ($0B = no parity, irq disabled)
 	STA	IOCMD		;
 
-	STR	BANNR		; Print out our welcome banner
+	STR	BANNR		; Print out welcome banner
 
-PRLOOP:	LDA	#PROMPT		; Print the prompt
+	;;
+	;; Eval Loop - Get input, act on it, return here.
+	;;
+
+EVLOOP:	LDA	#CR
 	JSR	COUT
-NXTCHR:	JSR	CIN		; Get a character, and
-	JSR	COUT		; just echo it.
-	LDA	#CR
-	JSR	COUT		; Then echo CR+LF
 	LDA	#LF
 	JSR	COUT
-	BNE	PRLOOP		; and wait for next input
+	LDA	#PROMPT		; Print the prompt
+	JSR	COUT
+
+	LDA	#$00		; Initialize registers
+	TAY
+	TAX
+
+	;; NXTCHR is responsible for getting the next character of
+	;; input and handling it.
+	;;
+	;; If the character is a CR, LF, or BS, there's special
+	;; handling. Otherwise, the character is added to the IBUF
+	;; input buffer, and then echoed to the screen.
+	;;
+	;; This routine uses Y as the IBUF pointer.
+
+NXTCHR:	JSR	CIN		; Get a character
+	CMP	#CR		; Is it a carriage-return?
+	BEQ	EVLOOP		; Done (for now just start over)
+	CMP	#LF		; Is it a line-feed?
+	BEQ	EVLOOP		; Done (for now just start over)
+	CMP	#BS		; Is it a backspace?
+	BEQ	BSPACE		; Yes, handle it.
+
+	;; It wasn't a CR, LF, or backspace.
+	JSR	COUT
+
+	STA	IBUF,Y		; Store the character into $200,Y
+	INY			; Move the pointer
+	BNE	NXTCHR		; Go get the next character.
+
+	;; Handle a backspace by decrementing Y (the IBUF pointer)
+	;; unless Y is already 0.
+
+BSPACE:	CPY	#0
+	;; If Y is already 0, don't do anything
+	BEQ	NXTCHR
+	DEY
+	LDA	#BS
+	JSR	COUT
+	JMP	NXTCHR
 
 
 ;;;  Catch-all infinite loop
@@ -110,7 +152,7 @@ COUT:	PHA			; Save accumulator
 ;;; ----------------------------------------------------------------------
 ;;; Read a character from the ACIA and put it into the accumulator
 ;;; ----------------------------------------------------------------------
-	
+
 CIN:	LDA	IOST
 	AND	#$08		; Is RX register full?
 	BEQ	CIN		; No, wait for it to fill up.
@@ -142,7 +184,7 @@ STOUT:	LDY	#$00		; Initialize string pointer
 ;;; Data
 ;;; ----------------------------------------------------------------------
 
-BANNR:	.byte	"RETROCHALLENGE 2014 ROM MONITOR",CR,LF,0
+BANNR:	.byte	"RETROCHALLENGE 2014 ROM MONITOR",0
 
 ;;;************************************************************************
 ;;; Reset and Interrupt vectors
