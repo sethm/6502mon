@@ -155,7 +155,11 @@ BSPACE:	CPY	#0	       ; If Y is already 0, don't
 	;;
 PARSE:	TYA			; Save Y to IBLEN
 	STA	IBLEN
-	JMP	EVLOOP		; Return to the eval loop.
+	BEQ	EVLOOP		; No command? Short circuit.
+
+	;; Handle the command.
+
+	JMP	EVLOOP		; Handled. Done.
 
 	BRK			; Catch-all for emulator debugging.
 
