@@ -65,6 +65,10 @@
 .segment "MONITOR"
 	.org	$FB00
 
+;;; ----------------------------------------------------------------------
+;;; Main ROM Entry Point
+;;; ----------------------------------------------------------------------
+
 START:	CLI
 	CLD
 
@@ -75,10 +79,10 @@ IOINIT: LDA	#$1D		; Set ACIA to 8N1, 9600 baud
 
 	STR	BANNR		; Print out our welcome banner
 
-PRLOOP:	LDA	#PROMPT		; Print the prompt and a space
+PRLOOP:	LDA	#PROMPT		; Print the prompt
 	JSR	COUT
-NXTCHR:	JSR	CIN
-	JSR	COUT		; Just echo it
+NXTCHR:	JSR	CIN		; Get a character, and
+	JSR	COUT		; just echo it.
 	LDA	#CR
 	JSR	COUT		; Then echo CR+LF
 	LDA	#LF
@@ -123,7 +127,7 @@ CIN:	LDA	IOST
 
 
 ;;; ----------------------------------------------------------------------
-;;; Print the null-terminated string located at STRHI,STRLO
+;;; Print the null-terminated string located at STRLO,STRHI
 ;;; ----------------------------------------------------------------------
 
 STOUT:	LDY	#$00		; Initialize string pointer
