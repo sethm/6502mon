@@ -276,7 +276,8 @@ PARSE:	TYA			; Save Y to IBLEN.
 
 
 	;; Success handler
-@succ:	JSR	PRADDR		; Print the current address.
+@succ:	CRLF
+	JSR	PRADDR		; Print the current address.
 	LDX	#$00
 	LDA	(OP1L,X)	; Grab the byte at OP1L,OP1H
 	JSR	PRBYT		; Print it.
@@ -293,16 +294,15 @@ PARSE:	TYA			; Save Y to IBLEN.
 ;;; Output: ACIA
 ;;; ----------------------------------------------------------------------
 
-PRADDR:	CRLF
-	LDA	OP1H
-	JSR	PRBYT
-	LDA	OP1L
-	JSR	PRBYT
-	LDA	#':'
+PRADDR:	LDA	OP1H		; Load the byte at OP1H.
+	JSR	PRBYT		; Print it out.
+	LDA	OP1L		; Load the byte at OP1L.
+	JSR	PRBYT		; Print it out.
+	LDA	#':'		; Print a ": " separator.
 	JSR	COUT
 	LDA	#' '
 	JSR	COUT
-	RTS
+	RTS			; Return.
 
 ;;; ----------------------------------------------------------------------
 ;;; Convert a single ASCII hex character to an unsigned int
