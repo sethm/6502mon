@@ -117,14 +117,13 @@ HRESET:	LDA	#$02		; Clear page 2
 	STA	($00),Y
 	BNE	@loop
 
-	;;
 	;; Start the monitor by printing a welcome message.
-	;;
 	STR	BANNR
 
 	;;
 	;; Eval Loop - Get input, act on it, return here.
 	;;
+
 EVLOOP:	CRLF
 	LDA	#PROMPT		; Print the prompt
 	JSR	COUT
@@ -143,7 +142,6 @@ EVLOOP:	CRLF
 	;; input buffer, and then echoed to the screen.
 	;;
 	;; This routine uses Y as the IBUF pointer.
-
 NXTCHR:	JSR	CIN		; Get a character
 	CMP	#CR		; Is it a carriage-return?
 	BEQ	PARSE		; Done. Parse buffer.
@@ -157,10 +155,8 @@ NXTCHR:	JSR	CIN		; Get a character
 	INY			; Move the pointer
 	BNE	NXTCHR		; Go get the next character.
 
-	;;
 	;; Handle a backspace by decrementing Y (the IBUF pointer)
 	;; unless Y is already 0.
-	;;
 BSPACE:	CPY	#0	       ; If Y is already 0, don't
 	BEQ	NXTCHR	       ;   do anything.
 	DEY
@@ -185,22 +181,21 @@ PARSE:	TYA			; Save Y to IBLEN.
 	STY	OP2L
 	STY	OP2H
 
-	;; 
+	;;
 	;; Tokenize the command and operands
 	;;
-	
+
 	;; First character is the command.
 	LDA	IBUF,Y
 	STA	CMD
 
 	;; Now start looking for the next token. Read from
 	;; IBUF until the character is not whitespace.
-	
 @loop:	INY
 	INX
 	CPX	IBLEN		; Is X now pointing outside the buffer?
 	BCS	@err		; Error, incorrect input.
-	
+
 	LDA	IBUF,Y
 	CMP	#' '
 	BEQ	@loop		; The character is a space, skip.
@@ -231,61 +226,61 @@ PARSE:	TYA			; Save Y to IBLEN.
 	;; This routine will walk the operand backward, from the least
 	;; significant to the most significant digit, placing the
 	;; value in OP1L and OP1H as it "fills up" the valuel
-	
+
 @parse:
 	;; First Digit
-	DEX			; Back up to point at last digit
-	CPX	TMPY		; Is X still >= Y?
-	BCC	@succ		; No, we're done.
+	DEX			; Move the digit pointer back 1.
+	CPX	TMPY		; Is pointer < Y?
+	BCC	@succ		; Yes, we're done.
 
-	LDA	IBUF,X
-	JSR	H2BIN		; Convert A from hex to int
-	STA	OP1L
-	
+	LDA	IBUF,X		; Grab the digit being pointed at.
+	JSR	H2BIN		; Convert it to an int.
+	STA	OP1L		; Store it in OP1L.
+
 	;; Second digit
-	DEX
-	CPX	TMPY
-	BCC	@succ
+	DEX			; Move the digit pointer back 1.
+	CPX	TMPY		; Is pointer < Y?
+	BCC	@succ		; Yes, we're done.
 
-	LDA	IBUF,X
-	JSR	H2BIN
+	LDA	IBUF,X		; Grab the digit being pointed at.
+	JSR	H2BIN		; Convert it to an int.
+	ASL			; Shift it left 4 bits.
 	ASL
 	ASL
 	ASL
-	ASL
-	ORA	OP1L
-	STA	OP1L
+	ORA	OP1L		; OR it with the value from the
+	STA	OP1L		;   last digit, and re-store it.
 
 	;; Third digit
-	DEX
-	CPX	TMPY
-	BCC	@succ
+	DEX			; Move the digit pointer back 1.
+	CPX	TMPY		; Is pointer < Y?
+	BCC	@succ		; Yes, we're done.
 
-	LDA	IBUF,X
-	JSR	H2BIN
-	STA	OP1H
+	LDA	IBUF,X		; Grab the digit being pointed at.
+	JSR	H2BIN		; Convert it to an int.
+	STA	OP1H		; Store it.
 
 	;; Fourth digit
-	DEX
-	CPX	TMPY
-	BCC	@succ
+	DEX			; Move the digit pointer back 1.
+	CPX	TMPY		; Is pointer < Y?
+	BCC	@succ		; Yes, we're done.
 
-	LDA	IBUF,X
-	JSR	H2BIN
+	LDA	IBUF,X		; Grab the digit being pointed at.
+	JSR	H2BIN		; Convert it to an int.
+	ASL			; Shift it left 4 bits.
 	ASL
 	ASL
 	ASL
-	ASL
-	ORA	OP1H
-	STA	OP1H
+	ORA	OP1H		; OR it with the current OP1H val.
+	STA	OP1H		; Store it.
 
 
 	;; Success handler
-@succ:	LDX	#$00
-	JSR	PRADDR
-	LDA	(OP1L,X)
-	JSR	PRBYT
-	JMP	EVLOOP
+@succ:	JSR	PRADDR		; Print the current address.
+	LDX	#$00
+	LDA	(OP1L,X)	; Grab the byte at OP1L,OP1H
+	JSR	PRBYT		; Print it.
+	JMP	EVLOOP		; Done! Go back for more.
 	;; Error handler
 @err:	JSR	PERR
 	JMP	EVLOOP
@@ -308,7 +303,7 @@ PRADDR:	CRLF
 	LDA	#' '
 	JSR	COUT
 	RTS
-	
+
 ;;; ----------------------------------------------------------------------
 ;;; Convert a single ASCII hex character to an unsigned int
 ;;; (from 0 to 16).
@@ -375,7 +370,7 @@ PRHEX:	AND	#$0F		; Mask out the high nybble
 @done:	ADC	#'0'
 	JSR	COUT
 	RTS
-	
+
 ;;; ----------------------------------------------------------------------
 ;;; Print the character in the Accumulator to the ACIA's output
 ;;; ----------------------------------------------------------------------
