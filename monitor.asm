@@ -24,6 +24,19 @@
 	JSR	STOUT		; then call STOUT.
 .endmacro
 
+;;;
+;;; CRLF
+;;;
+;;; Print a Carriage Return / Line Feed pair
+;;;
+;;; Modifies: Accumulator
+;;;
+.macro	CRLF
+	LDA	#CR
+	JSR	COUT
+	LDA	#LF
+	JSR	COUT
+.endmacro
 
 ;;;************************************************************************
 ;;; Non-monitor code, e.g. BASIC, utilities, etc., resides
@@ -36,9 +49,17 @@
 ;;; Memory Definitions
 ;;; ----------------------------------------------------------------------
 
+	TMPX	= $10		; Temporary storage for X
+	TMPY	= $11		; Temporary storage for Y
 	STRLO	= $20		; Low byte of STRING (used by STR macro)
 	STRHI	= $21		; Hi byte of STRING (used by STR macro)
 	IBLEN	= $22		; Input buffer length
+	HTMP	= $23		; Hex parsing temp
+	CMD	= $24		; Last parsed command
+	OP1L	= $25		; Operand 1: Low Byte
+	OP1H	= $26		; Operand 1: High Byte
+	OP2L	= $27		; Operand 2: Low Byte
+	OP2H	= $28		; Operand 3: High Byte
 
 	IBUF	= $0200		; Input buffer base
 
@@ -101,23 +122,21 @@ HRESET:	LDA	#$02		; Clear page 2
 	;;
 	STR	BANNR
 
-
 	;;
 	;; Eval Loop - Get input, act on it, return here.
 	;;
-EVLOOP:	LDA	#CR
-	JSR	COUT
-	LDA	#LF
-	JSR	COUT
+EVLOOP:	CRLF
 	LDA	#PROMPT		; Print the prompt
 	JSR	COUT
 
-	LDA	#$00		; Initialize registers
+	LDA	#$00		; Reset state by zeroing out
+	TAX			;  all registers and temp storage.
 	TAY
-	TAX
+	STA	IBLEN
+	STA	HTMP
 
 	;; NXTCHR is responsible for getting the next character of
-	;; input and handling it.
+	;; input.
 	;;
 	;; If the character is a CR, LF, or BS, there's special
 	;; handling. Otherwise, the character is added to the IBUF
@@ -153,16 +172,210 @@ BSPACE:	CPY	#0	       ; If Y is already 0, don't
 	;; Parse the command currently in the IBUF, with length
 	;; stored in Y
 	;;
-PARSE:	TYA			; Save Y to IBLEN
+PARSE:	TYA			; Save Y to IBLEN.
 	STA	IBLEN
 	BEQ	EVLOOP		; No command? Short circuit.
 
-	;; Handle the command.
+	;; Reset some parsing state
+	LDX	#$00		; Reset Operand pointer
+	LDY	#$00		; Reset IBUF pointer.
+	STY	CMD		; Clear command register.
+	STY	OP1L		; Clear operands.
+	STY	OP1H
+	STY	OP2L
+	STY	OP2H
 
-	JMP	EVLOOP		; Handled. Done.
+	;; 
+	;; Tokenize the command and operands
+	;;
+	
+	;; First character is the command.
+	LDA	IBUF,Y
+	STA	CMD
 
-	BRK			; Catch-all for emulator debugging.
+	;; Now start looking for the next token. Read from
+	;; IBUF until the character is not whitespace.
+	
+@loop:	INY
+	INX
+	CPX	IBLEN		; Is X now pointing outside the buffer?
+	BCS	@err		; Error, incorrect input.
+	
+	LDA	IBUF,Y
+	CMP	#' '
+	BEQ	@loop		; The character is a space, skip.
 
+	;; Here, we've found a non-space character.
+	;; We want to walk the IBUF with the operand pointer
+	;; until we find the first non-digit (hex)
+
+	STY	TMPY		; Hold Y value for comparison
+@loop2:	INX
+	CPX	IBLEN		; >= IBLEN?
+	BCS	@parse
+	LDA	IBUF,X
+	CMP	#'0'		; < '0'?
+	BCC	@parse		; It's not a digit, we're done.
+	CMP	#'9'+1		; <= '9'?
+	BCC	@loop2		; Yup, it's a digit. Keep going.
+	CMP	#'A'		; < 'A'
+	BCC	@parse		; It's not a digit, we're done.
+	CMP	#'Z'+1		; < 'Z'?
+	BCC	@loop2		; Yup, it's a digit. Keep going.
+	;; Fall through.
+
+
+	;; Now we're going to parse the operand and turn it into
+	;; a number.
+	;;
+	;; This routine will walk the operand backward, from the least
+	;; significant to the most significant digit, placing the
+	;; value in OP1L and OP1H as it "fills up" the valuel
+	
+@parse:
+	;; First Digit
+	DEX			; Back up to point at last digit
+	CPX	TMPY		; Is X still >= Y?
+	BCC	@succ		; No, we're done.
+
+	LDA	IBUF,X
+	JSR	H2BIN		; Convert A from hex to int
+	STA	OP1L
+	
+	;; Second digit
+	DEX
+	CPX	TMPY
+	BCC	@succ
+
+	LDA	IBUF,X
+	JSR	H2BIN
+	ASL
+	ASL
+	ASL
+	ASL
+	ORA	OP1L
+	STA	OP1L
+
+	;; Third digit
+	DEX
+	CPX	TMPY
+	BCC	@succ
+
+	LDA	IBUF,X
+	JSR	H2BIN
+	STA	OP1H
+
+	;; Fourth digit
+	DEX
+	CPX	TMPY
+	BCC	@succ
+
+	LDA	IBUF,X
+	JSR	H2BIN
+	ASL
+	ASL
+	ASL
+	ASL
+	ORA	OP1H
+	STA	OP1H
+
+
+	;; Success handler
+@succ:	LDX	#$00
+	JSR	PRADDR
+	LDA	(OP1L,X)
+	JSR	PRBYT
+	JMP	EVLOOP
+	;; Error handler
+@err:	JSR	PERR
+	JMP	EVLOOP
+
+;;; ----------------------------------------------------------------------
+;;; Print the last stored address as four consecutive ASCII hex
+;;; characters.
+;;;
+;;; Input:  EMEMH/EMEML
+;;; Output: ACIA
+;;; ----------------------------------------------------------------------
+
+PRADDR:	CRLF
+	LDA	OP1H
+	JSR	PRBYT
+	LDA	OP1L
+	JSR	PRBYT
+	LDA	#':'
+	JSR	COUT
+	LDA	#' '
+	JSR	COUT
+	RTS
+	
+;;; ----------------------------------------------------------------------
+;;; Convert a single ASCII hex character to an unsigned int
+;;; (from 0 to 16).
+;;;
+;;; Input:  Accumulator
+;;; Output: Accumulator
+;;; ----------------------------------------------------------------------
+
+H2BIN:	SEC
+	SBC	#'0'		; Subtract '0' from the digit.
+	CMP	#10		; Is the result <= 10? Digit was 0-9.
+	BCC	@done		; We're done.
+
+	CMP	#23		; Is this a hex digit? (<= 'F' - 30)
+	BCS	@err		; No, it's not a hex digit.
+	SEC
+	SBC	#7		; OK, it's a hex digit.
+@done:	RTS
+@err:	JSR	PERR
+	RTS
+
+;;; ----------------------------------------------------------------------
+;;; Parse Error
+;;;
+;;; Abort the current operation, print an error prompt ("?") and
+;;; get next line.
+;;; ----------------------------------------------------------------------
+
+PERR:	CRLF
+	LDA	#'?'
+	JSR	COUT
+	JMP	EVLOOP
+	RTS
+
+;;; ----------------------------------------------------------------------
+;;; Print the content of the accumulator as two consecutive ASCII
+;;; hex characters.
+;;;
+;;; Input:  Accumulator
+;;; Output: ACIA
+;;; ----------------------------------------------------------------------
+
+PRBYT:	PHA			; We'll need A later.
+	LSR			; Shift high nybble to low nybble
+	LSR
+	LSR
+	LSR
+	JSR	PRHEX		; Print it as a single hex char
+	PLA			; Get A back
+	;; Fall through to PRHEX
+
+;;; ----------------------------------------------------------------------
+;;; Print the low nybble of of the accumulator as a single
+;;; ASCII hex character.
+;;;
+;;; Input:  Accumulator
+;;; Output: ACIA
+;;; ----------------------------------------------------------------------
+
+PRHEX:	AND	#$0F		; Mask out the high nybble
+	CMP	#$0A		; Is it less than 10?
+	BCC	@done
+	ADC	#6
+@done:	ADC	#'0'
+	JSR	COUT
+	RTS
+	
 ;;; ----------------------------------------------------------------------
 ;;; Print the character in the Accumulator to the ACIA's output
 ;;; ----------------------------------------------------------------------
