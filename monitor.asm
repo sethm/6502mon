@@ -177,7 +177,7 @@ PARSE:	TYA			; Save Y to IBLEN.
 	;; Reset some parsing state
 	LDA	#$02
 	STA	OPCNT		; Set up to parse up to 2 operands
-	LDX	#$00		; Reset Operand pointer
+	LDX	#$FF		; Reset Operand pointer
 	LDY	#$00		; Reset IBUF pointer.
 	STY	CMD		; Clear command register.
 	STY	OP1L		; Clear operands.
@@ -197,8 +197,8 @@ PARSE:	TYA			; Save Y to IBLEN.
 	;; IBUF until the character is not whitespace.
 @tkstrt:
 	INY
-	CPY	IBLEN		; Is X now pointing outside the buffer?
-	BCS	@err		; Error, incorrect input.
+	CPY	IBLEN		; Is Y now pointing outside the buffer?
+	BCS	@succ		; Error, incorrect input.
 
 	LDA	IBUF,Y
 	CMP	#' '
@@ -239,6 +239,7 @@ PARSE:	TYA			; Save Y to IBLEN.
 	LDA	#$02
 	STA	OPBYT
 @parse:
+	INX
 	;; low nybble
 	DEY			; Move the digit pointer back 1.
 	CPY	TKST		; Is pointer < TKST?
@@ -264,11 +265,15 @@ PARSE:	TYA			; Save Y to IBLEN.
 
 	DEC	OPBYT		; Have we done 2 bytes?
 	BEQ	@succ		; If so, we're done.
-	INX			; If not, prep for next operand byte,
 	BNE	@parse		;    then go do it.
 
 	;; Success handler
-@succ:	CRLF
+@succ:	LDA	TKND		; Restore Y to end of token
+	TAY
+	DEC	OPCNT		; Have we done 2 operands?
+	BNE	@tkstrt		; No, try to find another
+
+	CRLF
 	JSR	PRADDR		; Print the current address.
 	LDX	#$00
 	LDA	(OP1L,X)	; Grab the byte at OP1L,OP1H
