@@ -175,6 +175,8 @@ PARSE:	TYA			; Save Y to IBLEN.
 	BEQ	EVLOOP		; No command? Short circuit.
 
 	;; Reset some parsing state
+	LDA	#$02
+	STA	OPCNT		; Set up to parse up to 2 operands
 	LDX	#$00		; Reset Operand pointer
 	LDY	#$00		; Reset IBUF pointer.
 	STY	CMD		; Clear command register.
@@ -193,33 +195,39 @@ PARSE:	TYA			; Save Y to IBLEN.
 
 	;; Now start looking for the next token. Read from
 	;; IBUF until the character is not whitespace.
-@loop:	INY
+@tkstrt:
+	INY
 	CPY	IBLEN		; Is X now pointing outside the buffer?
 	BCS	@err		; Error, incorrect input.
 
 	LDA	IBUF,Y
 	CMP	#' '
-	BEQ	@loop		; The character is a space, skip.
+	BEQ	@tkstrt		; The character is a space, skip.
 
 	;; Here, we've found a non-space character.
 	;; We want to walk the IBUF with the operand pointer
 	;; until we find the first non-digit (hex)
 
 	STY	TKST		; Hold Y value for comparison
-@loop2:	INY
+
+@tkend:	INY
 	CPY	IBLEN		; >= IBLEN?
-	BCS	@parse
-	LDA	IBUF,X
+	BCS	@endfnd
+	LDA	IBUF,Y
 	CMP	#'0'		; < '0'?
-	BCC	@parse		; It's not a digit, we're done.
-	CMP	#'9'+1		; <= '9'?
-	BCC	@loop2		; Yup, it's a digit. Keep going.
+	BCC	@endfnd		; It's not a digit, we're done.
+	CMP	#'9'+1		; < '9'?
+	BCC	@tkend		; Yup, it's a digit. Keep going.
 	CMP	#'A'		; < 'A'
-	BCC	@parse		; It's not a digit, we're done.
+	BCC	@endfnd		; It's not a digit, we're done.
 	CMP	#'Z'+1		; < 'Z'?
-	BCC	@loop2		; Yup, it's a digit. Keep going.
+	BCC	@tkend		; Yup, it's a digit. Keep going.
 	;; Fall through.
 
+	;; Y is currently pointing at the end of a token, so we'll
+	;; remember this location.
+@endfnd:
+	STY	TKND
 
 	;; Now we're going to parse the operand and turn it into
 	;; a number.
@@ -231,18 +239,18 @@ PARSE:	TYA			; Save Y to IBLEN.
 	LDA	#$02
 	STA	OPBYT
 @parse:
-	;; First Digit
+	;; low nybble
 	DEY			; Move the digit pointer back 1.
-	CPY	TKST		; Is pointer < Y?
+	CPY	TKST		; Is pointer < TKST?
 	BCC	@succ		; Yes, we're done.
 
 	LDA	IBUF,Y		; Grab the digit being pointed at.
 	JSR	H2BIN		; Convert it to an int.
 	STA	OP1L,X		; Store it in OP1L.
 
-	;; Second digit
+	;; high nybble
 	DEY			; Move the digit pointer back 1.
-	CPY	TKST		; Is pointer < Y?
+	CPY	TKST		; Is pointer < TKST?
 	BCC	@succ		; Yes, we're done.
 
 	LDA	IBUF,Y		; Grab the digit being pointed at.
