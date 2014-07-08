@@ -204,9 +204,9 @@ PARSE:	TYA			; Save Y to IBLEN.
 	CMP	#' '
 	BEQ	@tkstrt		; The character is a space, skip.
 
-	;; Here, we've found a non-space character.
-	;; We want to walk the IBUF with the operand pointer
-	;; until we find the first non-digit (hex)
+	;; Here, we've found a non-space character. We can
+	;; walk IBUF until we find the first non-digit (hex),
+	;; at which point we'll be at the end of an operand
 
 	STY	TKST		; Hold Y value for comparison
 
