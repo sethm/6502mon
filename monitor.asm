@@ -51,6 +51,8 @@
 
 	TKST	= $10		; Token start pointer
 	TKND	= $11		; Token end pointer
+	OPBYT	= $12		; # of bytes parsed in operand
+	OPCNT	= $13		; Operand parse count
 	STRLO	= $20		; Low byte of STRING (used by STR macro)
 	STRHI	= $21		; Hi byte of STRING (used by STR macro)
 	IBLEN	= $22		; Input buffer length
@@ -226,6 +228,8 @@ PARSE:	TYA			; Save Y to IBLEN.
 	;; significant to the most significant digit, placing the
 	;; value in OP1L and OP1H as it "fills up" the valuel
 
+	LDA	#$02
+	STA	OPBYT
 @parse:
 	;; First Digit
 	DEY			; Move the digit pointer back 1.
@@ -234,7 +238,7 @@ PARSE:	TYA			; Save Y to IBLEN.
 
 	LDA	IBUF,Y		; Grab the digit being pointed at.
 	JSR	H2BIN		; Convert it to an int.
-	STA	OP1L		; Store it in OP1L.
+	STA	OP1L,X		; Store it in OP1L.
 
 	;; Second digit
 	DEY			; Move the digit pointer back 1.
@@ -247,32 +251,13 @@ PARSE:	TYA			; Save Y to IBLEN.
 	ASL
 	ASL
 	ASL
-	ORA	OP1L		; OR it with the value from the
-	STA	OP1L		;   last digit, and re-store it.
+	ORA	OP1L,X		; OR it with the value from the
+	STA	OP1L,X		;   last digit, and re-store it.
 
-	;; Third digit
-	DEY			; Move the digit pointer back 1.
-	CPY	TKST		; Is pointer < Y?
-	BCC	@succ		; Yes, we're done.
-
-	LDA	IBUF,Y		; Grab the digit being pointed at.
-	JSR	H2BIN		; Convert it to an int.
-	STA	OP1H		; Store it.
-
-	;; Fourth digit
-	DEY			; Move the digit pointer back 1.
-	CPY	TKST		; Is pointer < Y?
-	BCC	@succ		; Yes, we're done.
-
-	LDA	IBUF,Y		; Grab the digit being pointed at.
-	JSR	H2BIN		; Convert it to an int.
-	ASL			; Shift it left 4 bits.
-	ASL
-	ASL
-	ASL
-	ORA	OP1H		; OR it with the current OP1H val.
-	STA	OP1H		; Store it.
-
+	DEC	OPBYT		; Have we done 2 bytes?
+	BEQ	@succ		; If so, we're done.
+	INX			; If not, prep for next operand byte,
+	BNE	@parse		;    then go do it.
 
 	;; Success handler
 @succ:	CRLF
