@@ -204,7 +204,7 @@ PARSE:	TYA			; Save Y to IBLEN.
 	;; We want to walk the IBUF with the operand pointer
 	;; until we find the first non-digit (hex)
 
-	STY	TMPY		; Hold Y value for comparison
+	STY	TKST		; Hold Y value for comparison
 @loop2:	INX
 	CPX	IBLEN		; >= IBLEN?
 	BCS	@parse
@@ -230,7 +230,7 @@ PARSE:	TYA			; Save Y to IBLEN.
 @parse:
 	;; First Digit
 	DEX			; Move the digit pointer back 1.
-	CPX	TMPY		; Is pointer < Y?
+	CPX	TKST		; Is pointer < Y?
 	BCC	@succ		; Yes, we're done.
 
 	LDA	IBUF,X		; Grab the digit being pointed at.
@@ -239,7 +239,7 @@ PARSE:	TYA			; Save Y to IBLEN.
 
 	;; Second digit
 	DEX			; Move the digit pointer back 1.
-	CPX	TMPY		; Is pointer < Y?
+	CPX	TKST		; Is pointer < Y?
 	BCC	@succ		; Yes, we're done.
 
 	LDA	IBUF,X		; Grab the digit being pointed at.
@@ -253,7 +253,7 @@ PARSE:	TYA			; Save Y to IBLEN.
 
 	;; Third digit
 	DEX			; Move the digit pointer back 1.
-	CPX	TMPY		; Is pointer < Y?
+	CPX	TKST		; Is pointer < Y?
 	BCC	@succ		; Yes, we're done.
 
 	LDA	IBUF,X		; Grab the digit being pointed at.
@@ -262,7 +262,7 @@ PARSE:	TYA			; Save Y to IBLEN.
 
 	;; Fourth digit
 	DEX			; Move the digit pointer back 1.
-	CPX	TMPY		; Is pointer < Y?
+	CPX	TKST		; Is pointer < Y?
 	BCC	@succ		; Yes, we're done.
 
 	LDA	IBUF,X		; Grab the digit being pointed at.
