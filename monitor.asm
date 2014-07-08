@@ -49,8 +49,8 @@
 ;;; Memory Definitions
 ;;; ----------------------------------------------------------------------
 
-	TMPX	= $10		; Temporary storage for X
-	TMPY	= $11		; Temporary storage for Y
+	TKST	= $10		; Token start pointer
+	TKND	= $11		; Token end pointer
 	STRLO	= $20		; Low byte of STRING (used by STR macro)
 	STRHI	= $21		; Hi byte of STRING (used by STR macro)
 	IBLEN	= $22		; Input buffer length
