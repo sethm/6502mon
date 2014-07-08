@@ -273,15 +273,40 @@ PARSE:	TYA			; Save Y to IBLEN.
 	DEC	OPCNT		; Have we done 2 operands?
 	BNE	@tkstrt		; No, try to find another
 
-	CRLF
-	JSR	PRADDR		; Print the current address.
-	LDX	#$00
-	LDA	(OP1L,X)	; Grab the byte at OP1L,OP1H
-	JSR	PRBYT		; Print it.
-	JMP	EVLOOP		; Done! Go back for more.
+	JMP	EXEC		; OK, we're parsed. Handle it!
+
 	;; Error handler
 @err:	JSR	PERR
 	JMP	EVLOOP
+
+;;; ----------------------------------------------------------------------
+;;; Execute the current command
+;;; ----------------------------------------------------------------------
+
+EXEC:	CRLF
+
+	LDX	#$00
+
+	LDA	CMD		; Dispatch to the appropriate command.
+	CMP	#'E'
+	BEQ	EXAMN
+	CMP	#'D'
+	BEQ	DEP
+
+	;; No idea what to do.
+	JSR	PERR
+
+EXAMN:	JSR	PRADDR		; Print the current address.
+	LDA	(OP1L,X)	; Grab the byte at OP1L,OP1H
+	JSR	PRBYT		; Print it.
+	JMP	EVLOOP		; Done.
+
+DEP:	JSR	PRADDR
+	LDA	OP2L		; Grab the data to store
+	STA	(OP1L,X)	; Store it
+	JSR	PRBYT		; Then print it back out
+	JMP	EVLOOP		; Done.
+
 
 ;;; ----------------------------------------------------------------------
 ;;; Print the last stored address as four consecutive ASCII hex
