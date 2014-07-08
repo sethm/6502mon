@@ -192,8 +192,7 @@ PARSE:	TYA			; Save Y to IBLEN.
 	;; Now start looking for the next token. Read from
 	;; IBUF until the character is not whitespace.
 @loop:	INY
-	INX
-	CPX	IBLEN		; Is X now pointing outside the buffer?
+	CPY	IBLEN		; Is X now pointing outside the buffer?
 	BCS	@err		; Error, incorrect input.
 
 	LDA	IBUF,Y
@@ -205,8 +204,8 @@ PARSE:	TYA			; Save Y to IBLEN.
 	;; until we find the first non-digit (hex)
 
 	STY	TKST		; Hold Y value for comparison
-@loop2:	INX
-	CPX	IBLEN		; >= IBLEN?
+@loop2:	INY
+	CPY	IBLEN		; >= IBLEN?
 	BCS	@parse
 	LDA	IBUF,X
 	CMP	#'0'		; < '0'?
@@ -229,20 +228,20 @@ PARSE:	TYA			; Save Y to IBLEN.
 
 @parse:
 	;; First Digit
-	DEX			; Move the digit pointer back 1.
-	CPX	TKST		; Is pointer < Y?
+	DEY			; Move the digit pointer back 1.
+	CPY	TKST		; Is pointer < Y?
 	BCC	@succ		; Yes, we're done.
 
-	LDA	IBUF,X		; Grab the digit being pointed at.
+	LDA	IBUF,Y		; Grab the digit being pointed at.
 	JSR	H2BIN		; Convert it to an int.
 	STA	OP1L		; Store it in OP1L.
 
 	;; Second digit
-	DEX			; Move the digit pointer back 1.
-	CPX	TKST		; Is pointer < Y?
+	DEY			; Move the digit pointer back 1.
+	CPY	TKST		; Is pointer < Y?
 	BCC	@succ		; Yes, we're done.
 
-	LDA	IBUF,X		; Grab the digit being pointed at.
+	LDA	IBUF,Y		; Grab the digit being pointed at.
 	JSR	H2BIN		; Convert it to an int.
 	ASL			; Shift it left 4 bits.
 	ASL
@@ -252,20 +251,20 @@ PARSE:	TYA			; Save Y to IBLEN.
 	STA	OP1L		;   last digit, and re-store it.
 
 	;; Third digit
-	DEX			; Move the digit pointer back 1.
-	CPX	TKST		; Is pointer < Y?
+	DEY			; Move the digit pointer back 1.
+	CPY	TKST		; Is pointer < Y?
 	BCC	@succ		; Yes, we're done.
 
-	LDA	IBUF,X		; Grab the digit being pointed at.
+	LDA	IBUF,Y		; Grab the digit being pointed at.
 	JSR	H2BIN		; Convert it to an int.
 	STA	OP1H		; Store it.
 
 	;; Fourth digit
-	DEX			; Move the digit pointer back 1.
-	CPX	TKST		; Is pointer < Y?
+	DEY			; Move the digit pointer back 1.
+	CPY	TKST		; Is pointer < Y?
 	BCC	@succ		; Yes, we're done.
 
-	LDA	IBUF,X		; Grab the digit being pointed at.
+	LDA	IBUF,Y		; Grab the digit being pointed at.
 	JSR	H2BIN		; Convert it to an int.
 	ASL			; Shift it left 4 bits.
 	ASL
