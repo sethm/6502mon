@@ -51,7 +51,7 @@
 
 	TKST	= $10		; Token start pointer
 	TKND	= $11		; Token end pointer
-	OPBYT	= $12		; # of bytes parsed in operand
+	OPBYT	= $12		; # of bytes parsed in 16-bit operands
 	TKCNT	= $13		; Operand parse count
 	STRLO	= $20		; Low byte of STRING (used by STR macro)
 	STRHI	= $21		; Hi byte of STRING (used by STR macro)
@@ -227,7 +227,7 @@ TKNEND:	INY
 	;; Y is currently pointing at the end of a token, so we'll
 	;; remember this location.
 TKSVPTR:
-	
+
 	STY	TKND
 
 	;; Now we're going to parse the operand and turn it into
@@ -248,7 +248,7 @@ TK2BIN:
 
 	LDA	IBUF,Y		; Grab the digit being pointed at.
 	JSR	H2BIN		; Convert it to an int.
-	STA	OPBASE,X		; Store it in OPBASE.
+	STA	OPBASE,X	; Store it in OPBASE + X
 
 	;; high nybble
 	DEY			; Move the digit pointer back 1.
@@ -264,12 +264,21 @@ TK2BIN:
 	ORA	OPBASE,X	; OR it with the value from the
 	STA	OPBASE,X	;   last digit, and re-store it.
 
+	;; Next byte - only if we're parsing the first two
+	;; operands, which are treated as 16-bit values.
+	;; 
+	;; (Operands 2 through F are treated as 8-bit values)
+
+	LDA	TKCNT		; If TKCNT is > 1, we can skip
+	CMP	#$02		;   the low byte
+	BCS	TKDONE
+
 	DEC	OPBYT		; Have we done 2 bytes?
 	BEQ	TKDONE		; Yes, we're done with this token.
 	BNE	TK2BIN		; If not, do next byte
 
 	;; We've finished converting a token.
-	
+
 TKDONE:	INC	TKCNT		; Increment the count of tokens parsed
 	LDA	TKND		; Restore Y to end of token
 	TAY
