@@ -266,7 +266,7 @@ TK2BIN:
 
 	;; Next byte - only if we're parsing the first two
 	;; operands, which are treated as 16-bit values.
-	;; 
+	;;
 	;; (Operands 2 through F are treated as 8-bit values)
 
 	LDA	TKCNT		; If TKCNT is > 1, we can skip
