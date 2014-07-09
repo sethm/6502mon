@@ -119,9 +119,9 @@ HRESET:	LDA	#$02		; Clear page 2
 	;; Start the monitor by printing a welcome message.
 	STR	BANNR
 
-	;;
-	;; Eval Loop - Get input, act on it, return here.
-	;;
+;;; ----------------------------------------------------------------------
+;;; Main Eval Loop - Get input, act on it, and return here.
+;;; ----------------------------------------------------------------------
 
 EVLOOP:	CRLF
 	LDA	#PROMPT		; Print the prompt
@@ -163,10 +163,15 @@ BSPACE:	CPY	#0	       ; If Y is already 0, don't
 	JSR	COUT
 	JMP	NXTCHR
 
-	;;
-	;; Parse the command currently in the IBUF, with length
-	;; stored in Y
-	;;
+
+;;; ----------------------------------------------------------------------
+;;; Parse the input buffer (IBUF) by tokenizing it into a command and
+;;; a series of operands.
+;;;
+;;; When the code reaches this point, Y will hold the length of the
+;;; input buffer.
+;;; ----------------------------------------------------------------------
+
 PARSE:	TYA			; Save Y to IBLEN.
 	STA	IBLEN
 	BEQ	EVLOOP		; No command? Short circuit.
@@ -226,7 +231,6 @@ TKNEND:	INY
 	;; Y is currently pointing at the end of a token, so we'll
 	;; remember this location.
 TKSVPTR:
-
 	STY	TKND
 
 	;; Now we're going to parse the operand and turn it into
@@ -293,7 +297,7 @@ TKDONE:	INC	TKCNT		; Increment the count of tokens parsed
 	;; No, the buffer is now empty. Fall through to EXEC
 
 ;;; ----------------------------------------------------------------------
-;;; Execute the current command
+;;; Execute the current command with the operands at OPBASE..OPBASE+$0F
 ;;; ----------------------------------------------------------------------
 
 EXEC:	CRLF
@@ -317,7 +321,6 @@ DEP:	JSR	PRADDR
 	STA	(OPBASE,X)	; Store it
 	JSR	PRBYT		; Then print it back out
 	JMP	EVLOOP		; Done.
-
 
 ;;; ----------------------------------------------------------------------
 ;;; Print the last stored address as four consecutive ASCII hex
