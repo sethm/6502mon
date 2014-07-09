@@ -235,12 +235,13 @@ TKSVPTR:
 	;;
 	;; This routine will walk the operand backward, from the least
 	;; significant to the most significant digit, placing the
-	;; value in OPBASE and OPBASE+1 as it "fills up" the valuel
+	;; value in OPBASE,X and OPBASE,X+1 as it "fills up" the value
 
 	LDA	#$02
 	STA	OPBYT
-TK2BIN:
-	INX
+
+	;; Token 2 Binary
+TK2BIN:	INX
 	;; low nybble
 	DEY			; Move the digit pointer back 1.
 	CPY	TKST		; Is pointer < TKST?
@@ -285,7 +286,7 @@ TKDONE:	INC	TKCNT		; Increment the count of tokens parsed
 	CPY	IBLEN		; Is there more to find?
 	BCC	SKIPSP		; Yes, try to find another
 
-	JMP	EXEC		; OK, we're parsed. Handle it!
+	JMP	EXEC		; OK, we're parsed. Handle command!
 
 ;;; ----------------------------------------------------------------------
 ;;; Execute the current command
