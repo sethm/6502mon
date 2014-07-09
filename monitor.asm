@@ -52,7 +52,7 @@
 	TKST	= $10		; Token start pointer
 	TKND	= $11		; Token end pointer
 	OPBYT	= $12		; # of bytes parsed in operand
-	OPCNT	= $13		; Operand parse count
+	TKCNT	= $13		; Operand parse count
 	STRLO	= $20		; Low byte of STRING (used by STR macro)
 	STRHI	= $21		; Hi byte of STRING (used by STR macro)
 	IBLEN	= $22		; Input buffer length
@@ -171,16 +171,19 @@ PARSE:	TYA			; Save Y to IBLEN.
 	STA	IBLEN
 	BEQ	EVLOOP		; No command? Short circuit.
 
-	;; Reset some parsing state
-	LDA	#$02
-	STA	OPCNT		; Set up to parse up to 2 operands
-	LDX	#$FF		; Reset Operand pointer
-	LDY	#$00		; Reset IBUF pointer.
-	STY	CMD		; Clear command register.
-	STY	OPBASE		; Clear operands.
-	STY	OPBASE+1
-	STY	OPBASE+2
-	STY	OPBASE+3
+	;; Clear operand storage
+	LDY	#$0F
+	LDA	#$00
+@loop:	STA	OPBASE,Y	; Clear operands.
+	DEY
+	BPL	@loop
+
+	;; Reset parsing state
+	LDX	#$FF		; Reset Token Pointer
+	LDA	#$00
+	STA	TKCNT		; Number of tokens we've parsed
+	STA	CMD		; Clear command register.
+	TAY			; Reset IBUF pointer.
 
 	;;
 	;; Tokenize the command and operands
@@ -258,18 +261,20 @@ TK2BIN:
 	ASL
 	ASL
 	ASL
-	ORA	OPBASE,X		; OR it with the value from the
-	STA	OPBASE,X		;   last digit, and re-store it.
+	ORA	OPBASE,X	; OR it with the value from the
+	STA	OPBASE,X	;   last digit, and re-store it.
 
 	DEC	OPBYT		; Have we done 2 bytes?
-	BEQ	TKDONE		; If so, we're done.
-	BNE	TK2BIN		;    then go do it.
+	BEQ	TKDONE		; Yes, we're done with this token.
+	BNE	TK2BIN		; If not, do next byte
 
-	;; Success handler
-TKDONE:	LDA	TKND		; Restore Y to end of token
+	;; We've finished converting a token.
+	
+TKDONE:	INC	TKCNT		; Increment the count of tokens parsed
+	LDA	TKND		; Restore Y to end of token
 	TAY
-	DEC	OPCNT		; Have we done 2 operands?
-	BNE	SKIPSP		; No, try to find another
+	CPY	IBLEN		; Is there more to find?
+	BCC	SKIPSP		; Yes, try to find another
 
 	JMP	EXEC		; OK, we're parsed. Handle it!
 
