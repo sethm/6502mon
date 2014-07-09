@@ -172,7 +172,7 @@ PARSE:	TYA			; Save Y to IBLEN.
 	BEQ	EVLOOP		; No command? Short circuit.
 
 	;; Clear operand storage
-	LDY	#$0F
+	LDY	#$10
 	LDA	#$00
 @loop:	STA	OPBASE,Y	; Clear operands.
 	DEY
@@ -195,10 +195,9 @@ PARSE:	TYA			; Save Y to IBLEN.
 
 	;; Now start looking for the next token. Read from
 	;; IBUF until the character is not whitespace.
-SKIPSP:
-	INY
+SKIPSP:	INY
 	CPY	IBLEN		; Is Y now pointing outside the buffer?
-	BCS	TKDONE		; Error, incorrect input.
+	BCS	EXEC		; Yes, nothing else to parse
 
 	LDA	IBUF,Y
 	CMP	#' '
@@ -281,21 +280,24 @@ TK2BIN:	INX
 	;; We've finished converting a token.
 
 TKDONE:	INC	TKCNT		; Increment the count of tokens parsed
-	LDA	TKND		; Restore Y to end of token
-	TAY
-	CPY	IBLEN		; Is there more to find?
-	BCC	SKIPSP		; Yes, try to find another
 
-	JMP	EXEC		; OK, we're parsed. Handle command!
+	CMP	#$0F		; Have we hit our maximum # of
+				;    operands? (16 max)
+	BCS	EXEC		; Yes, we're absolutely done, no more.
+
+	LDA	TKND		; No, keep going. Restore Y to end of
+	TAY			;   token position
+	CPY	IBLEN		; Is there more in the buffer?
+	BCC	SKIPSP		; Yes, try to find another token.
+
+	;; No, the buffer is now empty. Fall through to EXEC
 
 ;;; ----------------------------------------------------------------------
 ;;; Execute the current command
 ;;; ----------------------------------------------------------------------
 
 EXEC:	CRLF
-
 	LDX	#$00
-
 	LDA	CMD		; Dispatch to the appropriate command.
 	CMP	#'E'
 	BEQ	EXAMN
@@ -353,7 +355,8 @@ H2BIN:	SEC
 	SEC
 	SBC	#7		; OK, it's a hex digit.
 @done:	RTS
-@err:	JSR	PERR
+@err:	CRLF
+	JSR	PERR
 	RTS
 
 ;;; ----------------------------------------------------------------------
@@ -363,8 +366,7 @@ H2BIN:	SEC
 ;;; get next line.
 ;;; ----------------------------------------------------------------------
 
-PERR:	CRLF
-	LDA	#'?'
+PERR:	LDA	#'?'
 	JSR	COUT
 	JMP	EVLOOP
 	RTS
