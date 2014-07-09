@@ -58,10 +58,7 @@
 	IBLEN	= $22		; Input buffer length
 	HTMP	= $23		; Hex parsing temp
 	CMD	= $24		; Last parsed command
-	OP1L	= $25		; Operand 1: Low Byte
-	OP1H	= $26		; Operand 1: High Byte
-	OP2L	= $27		; Operand 2: Low Byte
-	OP2H	= $28		; Operand 3: High Byte
+	OPBASE	= $30		; Operand 1: Low Byte
 
 	IBUF	= $0200		; Input buffer base
 
@@ -180,10 +177,10 @@ PARSE:	TYA			; Save Y to IBLEN.
 	LDX	#$FF		; Reset Operand pointer
 	LDY	#$00		; Reset IBUF pointer.
 	STY	CMD		; Clear command register.
-	STY	OP1L		; Clear operands.
-	STY	OP1H
-	STY	OP2L
-	STY	OP2H
+	STY	OPBASE		; Clear operands.
+	STY	OPBASE+1
+	STY	OPBASE+2
+	STY	OPBASE+3
 
 	;;
 	;; Tokenize the command and operands
@@ -195,14 +192,14 @@ PARSE:	TYA			; Save Y to IBLEN.
 
 	;; Now start looking for the next token. Read from
 	;; IBUF until the character is not whitespace.
-@tkstrt:
+SKIPSP:
 	INY
 	CPY	IBLEN		; Is Y now pointing outside the buffer?
-	BCS	@succ		; Error, incorrect input.
+	BCS	TKDONE		; Error, incorrect input.
 
 	LDA	IBUF,Y
 	CMP	#' '
-	BEQ	@tkstrt		; The character is a space, skip.
+	BEQ	SKIPSP		; The character is a space, skip.
 
 	;; Here, we've found a non-space character. We can
 	;; walk IBUF until we find the first non-digit (hex),
@@ -210,23 +207,24 @@ PARSE:	TYA			; Save Y to IBLEN.
 
 	STY	TKST		; Hold Y value for comparison
 
-@tkend:	INY
+TKNEND:	INY
 	CPY	IBLEN		; >= IBLEN?
-	BCS	@endfnd
+	BCS	TKSVPTR
 	LDA	IBUF,Y
 	CMP	#'0'		; < '0'?
-	BCC	@endfnd		; It's not a digit, we're done.
+	BCC	TKSVPTR		; It's not a digit, we're done.
 	CMP	#'9'+1		; < '9'?
-	BCC	@tkend		; Yup, it's a digit. Keep going.
+	BCC	TKNEND		; Yup, it's a digit. Keep going.
 	CMP	#'A'		; < 'A'
-	BCC	@endfnd		; It's not a digit, we're done.
+	BCC	TKSVPTR		; It's not a digit, we're done.
 	CMP	#'Z'+1		; < 'Z'?
-	BCC	@tkend		; Yup, it's a digit. Keep going.
+	BCC	TKNEND		; Yup, it's a digit. Keep going.
 	;; Fall through.
 
 	;; Y is currently pointing at the end of a token, so we'll
 	;; remember this location.
-@endfnd:
+TKSVPTR:
+	
 	STY	TKND
 
 	;; Now we're going to parse the operand and turn it into
@@ -234,25 +232,25 @@ PARSE:	TYA			; Save Y to IBLEN.
 	;;
 	;; This routine will walk the operand backward, from the least
 	;; significant to the most significant digit, placing the
-	;; value in OP1L and OP1H as it "fills up" the valuel
+	;; value in OPBASE and OPBASE+1 as it "fills up" the valuel
 
 	LDA	#$02
 	STA	OPBYT
-@parse:
+TK2BIN:
 	INX
 	;; low nybble
 	DEY			; Move the digit pointer back 1.
 	CPY	TKST		; Is pointer < TKST?
-	BCC	@succ		; Yes, we're done.
+	BCC	TKDONE		; Yes, we're done.
 
 	LDA	IBUF,Y		; Grab the digit being pointed at.
 	JSR	H2BIN		; Convert it to an int.
-	STA	OP1L,X		; Store it in OP1L.
+	STA	OPBASE,X		; Store it in OPBASE.
 
 	;; high nybble
 	DEY			; Move the digit pointer back 1.
 	CPY	TKST		; Is pointer < TKST?
-	BCC	@succ		; Yes, we're done.
+	BCC	TKDONE		; Yes, we're done.
 
 	LDA	IBUF,Y		; Grab the digit being pointed at.
 	JSR	H2BIN		; Convert it to an int.
@@ -260,24 +258,20 @@ PARSE:	TYA			; Save Y to IBLEN.
 	ASL
 	ASL
 	ASL
-	ORA	OP1L,X		; OR it with the value from the
-	STA	OP1L,X		;   last digit, and re-store it.
+	ORA	OPBASE,X		; OR it with the value from the
+	STA	OPBASE,X		;   last digit, and re-store it.
 
 	DEC	OPBYT		; Have we done 2 bytes?
-	BEQ	@succ		; If so, we're done.
-	BNE	@parse		;    then go do it.
+	BEQ	TKDONE		; If so, we're done.
+	BNE	TK2BIN		;    then go do it.
 
 	;; Success handler
-@succ:	LDA	TKND		; Restore Y to end of token
+TKDONE:	LDA	TKND		; Restore Y to end of token
 	TAY
 	DEC	OPCNT		; Have we done 2 operands?
-	BNE	@tkstrt		; No, try to find another
+	BNE	SKIPSP		; No, try to find another
 
 	JMP	EXEC		; OK, we're parsed. Handle it!
-
-	;; Error handler
-@err:	JSR	PERR
-	JMP	EVLOOP
 
 ;;; ----------------------------------------------------------------------
 ;;; Execute the current command
@@ -297,13 +291,13 @@ EXEC:	CRLF
 	JSR	PERR
 
 EXAMN:	JSR	PRADDR		; Print the current address.
-	LDA	(OP1L,X)	; Grab the byte at OP1L,OP1H
+	LDA	(OPBASE,X)	; Grab the byte at OPBASE,OPBASE+1
 	JSR	PRBYT		; Print it.
 	JMP	EVLOOP		; Done.
 
 DEP:	JSR	PRADDR
-	LDA	OP2L		; Grab the data to store
-	STA	(OP1L,X)	; Store it
+	LDA	OPBASE+2	; Grab the data to store
+	STA	(OPBASE,X)	; Store it
 	JSR	PRBYT		; Then print it back out
 	JMP	EVLOOP		; Done.
 
@@ -316,9 +310,9 @@ DEP:	JSR	PRADDR
 ;;; Output: ACIA
 ;;; ----------------------------------------------------------------------
 
-PRADDR:	LDA	OP1H		; Load the byte at OP1H.
+PRADDR:	LDA	OPBASE+1	; Load the byte at OPBASE+1.
 	JSR	PRBYT		; Print it out.
-	LDA	OP1L		; Load the byte at OP1L.
+	LDA	OPBASE		; Load the byte at OPBASE.
 	JSR	PRBYT		; Print it out.
 	LDA	#':'		; Print a ": " separator.
 	JSR	COUT
