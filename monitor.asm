@@ -306,6 +306,7 @@ TKDONE:	INC	TKCNT		; Increment the count of tokens parsed
 ;;; ----------------------------------------------------------------------
 
 EXEC:	CRLF
+	LDA	CMD
 	CMP	#'H'		; Help requires no arguments,
 	BEQ	HELP		;    so comes first.
 
@@ -313,7 +314,6 @@ EXEC:	CRLF
 	BEQ	@err		; No operands? Error.
 
 	LDX	#$00		; Reset X
-
 	LDA	CMD		; Dispatch to the appropriate command.
 	CMP	#'E'
 	BEQ	EXDEP
