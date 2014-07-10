@@ -58,9 +58,14 @@
 	IBLEN	= $22		; Input buffer length
 	HTMP	= $23		; Hex parsing temp
 	CMD	= $24		; Last parsed command
-	OPBASE	= $30		; Operand 1: Low Byte
+	;; OPBASE	= $30		; Operands - base address. 21 bytes
+				; reserved.
 
-	IBUF	= $0200		; Input buffer base
+	OPADDRL = $F0		; Addr of current operand (low)
+	OPADDRH	= $F1		; Addr of current operand (high)
+
+	OPBASE	= $0200		; Operand base
+	IBUF	= $0230		; Input buffer base
 
 ;;; ----------------------------------------------------------------------
 ;;; Constants
@@ -305,22 +310,57 @@ EXEC:	CRLF
 	LDA	CMD		; Dispatch to the appropriate command.
 	CMP	#'E'
 	BEQ	EXAMN
+	CMP	#'G'
+	BEQ	GO
 	CMP	#'D'
 	BEQ	DEP
+	CMP	#'H'
+	BEQ	HELP
 
-	;; No idea what to do.
+	;; No idea what to do, error out.
 	JSR	PERR
+	JMP	EVLOOP
 
-EXAMN:	JSR	PRADDR		; Print the current address.
-	LDA	(OPBASE,X)	; Grab the byte at OPBASE,OPBASE+1
+EXAMN:	LDA	TKCNT
+	BEQ	@err		; No operands? Error.
+
+	JSR	PRADDR		; Print the current address.
+
+	LDA	OPBASE		; Transfer the address we want to load 
+	STA	OPADDRL		;    from to OPADDRL
+	LDA	OPBASE+1	;    
+	STA	OPADDRH		;    and OPADDRH
+
+	LDA	(OPADDRL,X)	; Get data pointed at by address
 	JSR	PRBYT		; Print it.
 	JMP	EVLOOP		; Done.
 
+@err:	JSR	PERR
+	JMP	EVLOOP
+
+GO:	LDA	TKCNT
+	BEQ	@err
+
+	JMP	(OPBASE)
+	
+@err:	JSR	PERR
+	JMP	EVLOOP
+
 DEP:	JSR	PRADDR
+
+	LDA	OPBASE
+	STA	OPADDRL
+	LDA	OPBASE+1
+	STA	OPADDRH
+	
 	LDA	OPBASE+2	; Grab the data to store
-	STA	(OPBASE,X)	; Store it
+	STA	(OPADDRL,X)	; Store it
+
 	JSR	PRBYT		; Then print it back out
 	JMP	EVLOOP		; Done.
+
+HELP:	STR	HELPS
+	JMP	EVLOOP
 
 ;;; ----------------------------------------------------------------------
 ;;; Print the last stored address as four consecutive ASCII hex
@@ -456,6 +496,11 @@ STOUT:	LDY	#$00		; Initialize string pointer
 ;;; ----------------------------------------------------------------------
 
 BANNR:	.byte	"RETROCHALLENGE 2014 ROM MONITOR",0
+HELPS:	.byte	"COMMANDS ARE:",CR,LF
+	.byte	"H                             HELP",CR,LF
+	.byte	"E <addr> [<addr>]             EXAMINE",CR,LF
+	.byte	"D <addr> <val> [<val> ...]    DEPOSIT",CR,LF
+	.byte	"G <addr>                      GO",CR,LF,0
 
 ;;;************************************************************************
 ;;; Reset and Interrupt vectors
