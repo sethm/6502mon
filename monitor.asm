@@ -306,61 +306,85 @@ TKDONE:	INC	TKCNT		; Increment the count of tokens parsed
 ;;; ----------------------------------------------------------------------
 
 EXEC:	CRLF
-	LDX	#$00
-	LDA	CMD		; Dispatch to the appropriate command.
-	CMP	#'E'
-	BEQ	EXAMN
-	CMP	#'G'
-	BEQ	GO
-	CMP	#'D'
-	BEQ	DEP
-	CMP	#'H'
-	BEQ	HELP
+	CMP	#'H'		; Help requires no arguments,
+	BEQ	HELP		;    so comes first.
 
-	;; No idea what to do, error out.
-	JSR	PERR
-	JMP	EVLOOP
-
-EXAMN:	LDA	TKCNT
+	LDA	TKCNT		; Now we check operand count.
 	BEQ	@err		; No operands? Error.
 
-	JSR	PRADDR		; Print the current address.
+	LDX	#$00		; Reset X
 
-	LDA	OPBASE		; Transfer the address we want to load 
+	LDA	CMD		; Dispatch to the appropriate command.
+	CMP	#'E'
+	BEQ	EXDEP
+	CMP	#'D'
+	BEQ	EXDEP
+	CMP	#'G'
+	BEQ	GO
+
+	;; No idea what to do, fall through
+@err:	JSR	PERR
+	JMP	EVLOOP
+
+;;; HELP command
+HELP:	STR	HELPS
+	JMP	EVLOOP
+
+;;; GO command
+GO:	JMP	(OPBASE)	; Just jump to the appropriate address
+
+;;; EXAMINE and DEPOSIT commands share code, and start the same way.
+EXDEP:	JSR	PRADDR		; Print the current address.
+
+	LDA	OPBASE		; Transfer the address we want to load
 	STA	OPADDRL		;    from to OPADDRL
-	LDA	OPBASE+1	;    
+	LDA	OPBASE+1	;
 	STA	OPADDRH		;    and OPADDRH
 
+	LDA	CMD		; Are we in DEPOSIT?
+	CMP	#'D'
+	BEQ	DEP		; Yes. Go there.
+
+	;; Examine. How many operands?
+	LDA	TKCNT
+	CMP	#$02		; Two?
+	BEQ	PRANGE		; Print a range.
+	;; If just one,
 	LDA	(OPADDRL,X)	; Get data pointed at by address
+
 	JSR	PRBYT		; Print it.
 	JMP	EVLOOP		; Done.
 
-@err:	JSR	PERR
-	JMP	EVLOOP
-
-GO:	LDA	TKCNT
-	BEQ	@err
-
-	JMP	(OPBASE)
-	
-@err:	JSR	PERR
-	JMP	EVLOOP
-
-DEP:	JSR	PRADDR
-
-	LDA	OPBASE
-	STA	OPADDRL
-	LDA	OPBASE+1
-	STA	OPADDRH
-	
-	LDA	OPBASE+2	; Grab the data to store
+;;; DEPOSIT command
+DEP:	LDA	OPBASE+2	; Grab the data to store
 	STA	(OPADDRL,X)	; Store it
 
 	JSR	PRBYT		; Then print it back out
 	JMP	EVLOOP		; Done.
 
-HELP:	STR	HELPS
-	JMP	EVLOOP
+;;; Print a range
+PRANGE:	LDY	#$00
+@loop:	LDA	(OPADDRL,X)
+	JSR	PR1B
+
+	INC	OPADDRL		; Read next location in memory.
+	BNE	@skip		; If L was incremented to 00,
+	INC	OPADDRH		;   inc H too.
+
+	;; Are we at the end of the range?
+@skip:	LDA	OPBASE+2	; Compare low
+	CMP	OPADDRL
+	BEQ	@done
+	BNE	@loop
+@done:	JMP	EVLOOP
+	
+;;; Print a space and the byte in A
+PR1B:	PHA
+	LDA	#' '
+	JSR	COUT
+	PLA
+	JSR	PRBYT
+	RTS
 
 ;;; ----------------------------------------------------------------------
 ;;; Print the last stored address as four consecutive ASCII hex
