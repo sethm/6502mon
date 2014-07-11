@@ -302,7 +302,7 @@ TKDONE:	INC	TKCNT		; Increment the count of tokens parsed
 	;; No, the buffer is now empty. Fall through to EXEC
 
 ;;; ----------------------------------------------------------------------
-;;; Execute the current command with the operands at OPBASE..OPBASE+$0F
+;;; Execute the current command with the decoded operands.
 ;;; ----------------------------------------------------------------------
 
 EXEC:	CRLF
@@ -334,12 +334,12 @@ HELP:	STR	HELPS
 GO:	JMP	(OPBASE)	; Just jump to the appropriate address
 
 ;;; EXAMINE and DEPOSIT commands share code, and start the same way.
-EXDEP:	JSR	PRADDR		; Print the current address.
-
-	LDA	OPBASE		; Transfer the address we want to load
+EXDEP:	LDA	OPBASE		; Transfer the address we want to load
 	STA	OPADDRL		;    from to OPADDRL
 	LDA	OPBASE+1	;
 	STA	OPADDRH		;    and OPADDRH
+
+	JSR	PRADDR
 
 	LDA	CMD		; Are we in DEPOSIT?
 	CMP	#'D'
@@ -363,21 +363,33 @@ DEP:	LDA	OPBASE+2	; Grab the data to store
 	JMP	EVLOOP		; Done.
 
 ;;; Print a range
-PRANGE:	LDY	#$00
-@loop:	LDA	(OPADDRL,X)
+PRANGE:	LDY	#$11
+
+@loop:
+	DEY
+	BNE	@nocr
+	CRLF
+	JSR	PRADDR
+	LDY	#$10
+
+@nocr:	LDA	(OPADDRL,X)
 	JSR	PR1B
+
+	;; Are we at the end of the range?
+	LDA	OPBASE+2	; Compare low
+	CMP	OPADDRL
+	BEQ	@done	
 
 	INC	OPADDRL		; Read next location in memory.
 	BNE	@skip		; If L was incremented to 00,
 	INC	OPADDRH		;   inc H too.
 
-	;; Are we at the end of the range?
-@skip:	LDA	OPBASE+2	; Compare low
-	CMP	OPADDRL
-	BEQ	@done
-	BNE	@loop
+@skip:
+
+	JMP	@loop
+
 @done:	JMP	EVLOOP
-	
+
 ;;; Print a space and the byte in A
 PR1B:	PHA
 	LDA	#' '
@@ -394,9 +406,9 @@ PR1B:	PHA
 ;;; Output: ACIA
 ;;; ----------------------------------------------------------------------
 
-PRADDR:	LDA	OPBASE+1	; Load the byte at OPBASE+1.
+PRADDR:	LDA	OPADDRH 	; Load the byte at OPBASE+1.
 	JSR	PRBYT		; Print it out.
-	LDA	OPBASE		; Load the byte at OPBASE.
+	LDA	OPADDRL		; Load the byte at OPBASE.
 	JSR	PRBYT		; Print it out.
 	LDA	#':'		; Print a ": " separator.
 	JSR	COUT
