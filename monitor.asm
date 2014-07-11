@@ -376,11 +376,14 @@ PRANGE:	LDY	#$11
 	JSR	PR1B
 
 	;; Are we at the end of the range?
+	LDA	OPBASE+3	; Compare high
+	CMP	OPADDRH
+	BNE	@next
 	LDA	OPBASE+2	; Compare low
 	CMP	OPADDRL
 	BEQ	@done	
 
-	INC	OPADDRL		; Read next location in memory.
+@next:	INC	OPADDRL		; Read next location in memory.
 	BNE	@skip		; If L was incremented to 00,
 	INC	OPADDRH		;   inc H too.
 
