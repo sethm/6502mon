@@ -339,8 +339,6 @@ EXDEP:	LDA	OPBASE		; Transfer the address we want to load
 	LDA	OPBASE+1	;
 	STA	OPADDRH		;    and OPADDRH
 
-	JSR	PRADDR
-
 	LDA	CMD		; Are we in DEPOSIT?
 	CMP	#'D'
 	BEQ	DEP		; Yes. Go there.
@@ -350,29 +348,41 @@ EXDEP:	LDA	OPBASE		; Transfer the address we want to load
 	CMP	#$02		; Two?
 	BEQ	PRANGE		; Print a range.
 	;; If just one,
+	JSR	PRADDR		; Print the address
 	LDA	(OPADDRL,X)	; Get data pointed at by address
 
 	JSR	PRBYT		; Print it.
 	JMP	EVLOOP		; Done.
 
 ;;; DEPOSIT command
-DEP:	LDA	OPBASE+2	; Grab the data to store
+DEP:	JSR	PRADDR
+
+	LDA	OPBASE+2	; Grab the data to store
 	STA	(OPADDRL,X)	; Store it
 
 	JSR	PRBYT		; Then print it back out
 	JMP	EVLOOP		; Done.
 
 ;;; Print a range
-PRANGE:	LDY	#$11
+PRANGE:
+	;; Do a 16-bit signed comparison of START and END addresses
+	;; to make sure the range is valid. If it's not, error out and
+	;; don't continue.
+	SEC
+	LDA	OPBASE+3	; Compare high bytes
+	SBC	OPBASE+1
+	BVC	@l1
+	EOR	#$80
+@l1:	BMI	@err
+	BVC	@l2
+	EOR	#$80
+@l2:	BNE	@start
+	LDA	OPBASE+2	; Compare low bytes
+	SBC	OPBASE
+	BCC	@err		; START is > END, no good.
 
-@loop:
-	DEY
-	BNE	@nocr
-	CRLF
-	JSR	PRADDR
-	LDY	#$10
-
-@nocr:	LDA	(OPADDRL,X)
+@start:	JSR	PRADDR
+@loop:	LDA	(OPADDRL,X)
 	JSR	PR1B
 
 	;; Are we at the end of the range?
@@ -381,17 +391,25 @@ PRANGE:	LDY	#$11
 	BNE	@next
 	LDA	OPBASE+2	; Compare low
 	CMP	OPADDRL
-	BEQ	@done	
+	BEQ	@done
 
 @next:	INC	OPADDRL		; Read next location in memory.
 	BNE	@skip		; If L was incremented to 00,
 	INC	OPADDRH		;   inc H too.
-
 @skip:
-
+	;; Insert a carriage return and print
+	;; next address if needed.
+	LDA	OPADDRL
+	AND	#$0F
+	BNE	@loop		; No CRLF/ADDR needed
+	CRLF
+	JSR	PRADDR
+	LDY	#$10
 	JMP	@loop
 
 @done:	JMP	EVLOOP
+@err:	JSR	PERR
+	JMP	EVLOOP
 
 ;;; Print a space and the byte in A
 PR1B:	PHA
