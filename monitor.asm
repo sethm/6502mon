@@ -352,13 +352,19 @@ EXDEP:	LDA	OPBASE		; Transfer the address we want to load
 	JMP	EVLOOP		; Done.
 
 ;;; DEPOSIT command
-DEP:	JSR	PRADDR
+DEP:	LDA	TKCNT
+	CMP	#$02
+	BCC	@err
+
+	JSR	PRADDR
 
 	LDA	OPBASE+2	; Grab the data to store
 	STA	(OPADDRL,X)	; Store it
 
 	JSR	PRBYT		; Then print it back out
 	JMP	EVLOOP		; Done.
+@err:	JSR	PERR
+	JMP	EVLOOP
 
 ;;; Print a range
 PRANGE:
