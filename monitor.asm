@@ -221,15 +221,9 @@ TKNEND:	INY
 	BCS	TKSVPTR
 	LDA	IBUF,Y
 
-	CMP	#'0'		; < '0'?
-	BCC	TKSVPTR		; It's not a digit, we're done.
-	CMP	#'9'+1		; < '9'?
-	BCC	TKNEND		; Yup, it's a digit. Keep going.
-	CMP	#'A'		; < 'A'
-	BCC	TKSVPTR		; It's not a digit, we're done.
-	CMP	#'F'+1		; < 'Z'?
-	BCC	TKNEND		; Yup, it's a digit. Keep going.
-	;; Fall through.
+	CMP	#' '		; Is it a space?
+	BNE	TKNEND		; No, keep going.
+	;; Yes, fall through.
 
 	;; Y is currently pointing at the end of a token, so we'll
 	;; remember this location.
@@ -302,15 +296,20 @@ TKDONE:	INC	TKCNT		; Increment the count of tokens parsed
 ;;; Execute the current command with the decoded operands.
 ;;; ----------------------------------------------------------------------
 
-EXEC:	CRLF
+EXEC:	LDX	#$00		; Reset X
+
 	LDA	CMD
+	CMP	#'D'
+	BEQ	@nolf
+	CRLF			; CRLF (unless the command is DEP)
+@nolf:	LDA	CMD		; Have toerr reload CMD, CRLF will mess
+				; with it
 	CMP	#'H'		; Help requires no arguments,
 	BEQ	HELP		;    so comes first.
 
 	LDA	TKCNT		; Now we check operand count.
 	BEQ	@err		; No operands? Error.
 
-	LDX	#$00		; Reset X
 	LDA	CMD		; Dispatch to the appropriate command.
 	CMP	#'E'
 	BEQ	EXDEP
@@ -344,7 +343,7 @@ EXDEP:	LDA	OPBASE		; Transfer the address we want to load
 	LDA	TKCNT
 	CMP	#$02		; Two?
 	BEQ	PRANGE		; Print a range.
-	;; If just one,
+	;; If just one...
 	JSR	PRADDR		; Print the address
 	LDA	(OPADDRL,X)	; Get data pointed at by address
 
@@ -355,15 +354,15 @@ EXDEP:	LDA	OPBASE		; Transfer the address we want to load
 DEP:	LDA	TKCNT
 	CMP	#$02
 	BCC	@err
-
-	JSR	PRADDR
-
 	LDA	OPBASE+2	; Grab the data to store
 	STA	(OPADDRL,X)	; Store it
-
-	JSR	PRBYT		; Then print it back out
+	;; We don't print anything back to the console on deposit
+	;; because we want to make it easy to pipe in data from a
+	;; serial console. All we do is jump back and print the prompt
+	;; again. Silence means success.
 	JMP	EVLOOP		; Done.
-@err:	JSR	PERR
+@err:	CRLF
+	JSR	PERR
 	JMP	EVLOOP
 
 ;;; Print a range
@@ -441,6 +440,24 @@ PRADDR:	LDA	OPADDRH 	; Load the byte at OPBASE+1.
 	RTS			; Return.
 
 ;;; ----------------------------------------------------------------------
+;;; Check to see if the value in A is a hex digit.
+;;; Input: Accumulaotr
+;;; Output: C
+;;; ----------------------------------------------------------------------
+
+ISNUM:	CMP	#'0'		; < '0'?
+	BCC	@fail		; It's not an alphanum, we're done.
+	CMP	#'9'+1		; < '9'?
+	BCC	@succ		; Yup, it's an alphanum. Keep going.
+	CMP	#'A'		; < 'A'
+	BCC	@fail		; It's not an alphanum, we're done.
+	CMP	#'Z'+1		; < 'Z'?
+	BCC	@succ		; Yup, it's an alphanum. Keep going.
+@fail:	SEC
+@succ:	RTS
+
+
+;;; ----------------------------------------------------------------------
 ;;; Convert a single ASCII hex character to an unsigned int
 ;;; (from 0 to 16).
 ;;;
@@ -448,7 +465,10 @@ PRADDR:	LDA	OPADDRH 	; Load the byte at OPBASE+1.
 ;;; Output: Accumulator
 ;;; ----------------------------------------------------------------------
 
-H2BIN:	SEC
+H2BIN:	JSR	ISNUM		; If this isn't a valid digit, error out.
+	BCS	@err
+
+	SEC
 	SBC	#'0'		; Subtract '0' from the digit.
 	CMP	#10		; Is the result <= 10? Digit was 0-9.
 	BCC	@done		; We're done.
