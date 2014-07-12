@@ -52,20 +52,18 @@
 	TKST	= $10		; Token start pointer
 	TKND	= $11		; Token end pointer
 	OPBYT	= $12		; # of bytes parsed in 16-bit operands
-	TKCNT	= $13		; Operand parse count
 	STRLO	= $20		; Low byte of STRING (used by STR macro)
 	STRHI	= $21		; Hi byte of STRING (used by STR macro)
 	IBLEN	= $22		; Input buffer length
 	HTMP	= $23		; Hex parsing temp
 	CMD	= $24		; Last parsed command
-	;; OPBASE	= $30		; Operands - base address. 21 bytes
-				; reserved.
 
 	OPADDRL = $F0		; Addr of current operand (low)
 	OPADDRH	= $F1		; Addr of current operand (high)
 
-	OPBASE	= $0200		; Operand base
-	IBUF	= $0230		; Input buffer base
+	TKCNT	= $0200
+	OPBASE	= $0201		; Operand base
+	IBUF	= $0220		; Input buffer base
 
 ;;; ----------------------------------------------------------------------
 ;;; Constants
@@ -223,13 +221,14 @@ TKNEND:	INY
 	CPY	IBLEN		; >= IBLEN?
 	BCS	TKSVPTR
 	LDA	IBUF,Y
+
 	CMP	#'0'		; < '0'?
 	BCC	TKSVPTR		; It's not a digit, we're done.
 	CMP	#'9'+1		; < '9'?
 	BCC	TKNEND		; Yup, it's a digit. Keep going.
 	CMP	#'A'		; < 'A'
 	BCC	TKSVPTR		; It's not a digit, we're done.
-	CMP	#'Z'+1		; < 'Z'?
+	CMP	#'F'+1		; < 'Z'?
 	BCC	TKNEND		; Yup, it's a digit. Keep going.
 	;; Fall through.
 
@@ -278,7 +277,7 @@ TK2BIN:	INX
 	;;
 	;; (Operands 2 through F are treated as 8-bit values)
 
-	LDA	TKCNT		; If TKCNT is > 1, we can skip
+	LDA	TKCNT		; If TKCNT is > 2, we can skip
 	CMP	#$02		;   the low byte
 	BCS	TKDONE
 
