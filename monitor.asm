@@ -49,20 +49,19 @@
 ;;; Memory Definitions
 ;;; ----------------------------------------------------------------------
 
-	TKST	= $10		; Token start pointer
-	TKND	= $11		; Token end pointer
-	OPBYT	= $12		; # of bytes parsed in 16-bit operands
 	STRLO	= $20		; Low byte of STRING (used by STR macro)
 	STRHI	= $21		; Hi byte of STRING (used by STR macro)
-	IBLEN	= $22		; Input buffer length
 	HTMP	= $23		; Hex parsing temp
-	CMD	= $24		; Last parsed command
+	OPADDRL = $25		; Addr of current operand (low)
+	OPADDRH	= $26		; Addr of current operand (high)
 
-	OPADDRL = $F0		; Addr of current operand (low)
-	OPADDRH	= $F1		; Addr of current operand (high)
-
-	TKCNT	= $0200
-	OPBASE	= $0201		; Operand base
+	OPBYT	= $0200		; # of bytes parsed in 16-bit operands
+	TKCNT	= $0201		; Count of parsed tokens
+	IBLEN	= $0202		; Input buffer length
+	CMD	= $0203		; Last parsed command
+	TKST	= $0204		; Token start pointer
+	TKND	= $0205		; Token end pointer
+	OPBASE	= $0206		; Operand base
 	IBUF	= $0220		; Input buffer base
 
 ;;; ----------------------------------------------------------------------
@@ -261,7 +260,7 @@ TK2BIN:	INX
 	;; high nybble
 	DEY			; Move the digit pointer back 1.
 	CPY	TKST		; Is pointer < TKST?
-	BCC	TKDONE		; Yes, we're done.
+	BCC	HIBCHK		; We might be done
 
 	LDA	IBUF,Y		; Grab the digit being pointed at.
 	JSR	H2BIN		; Convert it to an int.
@@ -277,12 +276,11 @@ TK2BIN:	INX
 	;;
 	;; (Operands 2 through F are treated as 8-bit values)
 
-	LDA	TKCNT		; If TKCNT is > 2, we can skip
+HIBCHK:	LDA	TKCNT		; If TKCNT is > 2, we can skip
 	CMP	#$02		;   the low byte
 	BCS	TKDONE
 
 	DEC	OPBYT		; Have we done 2 bytes?
-	BEQ	TKDONE		; Yes, we're done with this token.
 	BNE	TK2BIN		; If not, do next byte
 
 	;; We've finished converting a token.
