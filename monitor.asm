@@ -408,7 +408,11 @@ PRANGE:
 	SBC	OPBASE
 	BCC	@err		; START is > END, no good.
 
-@start:	JSR	PRADDR
+	;; Now we know the range is valid. We can actually print the
+	;; contents of memory between [OPBASE,OPBASE+1] and
+	;; [OPBASE+2,OPBASE+3]
+
+@start:	JSR	PRADDR		; Print the current address
 @loop:	LDA	(OPADDRL,X)
 	JSR	PR1B
 
@@ -423,8 +427,7 @@ PRANGE:
 @next:	INC	OPADDRL		; Read next location in memory.
 	BNE	@skip		; If L was incremented to 00,
 	INC	OPADDRH		;   inc H too.
-@skip:
-	;; Insert a carriage return and print
+@skip:	;; Insert a carriage return and print
 	;; next address if needed.
 	LDA	OPADDRL
 	AND	#$0F
@@ -434,7 +437,10 @@ PRANGE:
 	LDY	#$10
 	JMP	@loop
 
-@done:	JMP	EVLOOP
+@done:
+	JMP	EVLOOP
+
+
 @err:	JSR	PERR
 	JMP	EVLOOP
 
@@ -490,7 +496,7 @@ ISNUM:	CMP	#'0'		; < '0'?
 
 PRTBLE:	CMP	#$20		; < space?
 	BCC	@fail		; It's not printable
-	CMP	#$127		; < DEL?
+	CMP	#$7F		; < DEL?
 	BCC	@succ		; Yes, it's printable.
 	;; Fall through to failure
 @fail:	SEC
