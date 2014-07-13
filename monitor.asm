@@ -467,20 +467,34 @@ PRADDR:	LDA	OPADDRH 	; Load the byte at OPBASE+1.
 ;;; ----------------------------------------------------------------------
 ;;; Check to see if the value in A is a hex digit.
 ;;; Input: Accumulaotr
-;;; Output: C
+;;; Output: C - Clear if digit, set if not digit.
 ;;; ----------------------------------------------------------------------
 
 ISNUM:	CMP	#'0'		; < '0'?
-	BCC	@fail		; It's not an alphanum, we're done.
-	CMP	#'9'+1		; < '9'?
-	BCC	@succ		; Yup, it's an alphanum. Keep going.
+	BCC	@fail		; It's not a digit.
+	CMP	#'9'+1		; <= '9'?
+	BCC	@succ		; Yup, it's a digit.
 	CMP	#'A'		; < 'A'
-	BCC	@fail		; It's not an alphanum, we're done.
-	CMP	#'Z'+1		; < 'Z'?
-	BCC	@succ		; Yup, it's an alphanum. Keep going.
+	BCC	@fail		; It's not a digit.
+	CMP	#'F'+1		; <= 'F'?
+	BCC	@succ		; Yup, it's a digit.
+	;; Fall through to failure
 @fail:	SEC
 @succ:	RTS
 
+;;; ----------------------------------------------------------------------
+;;; Check to see if the value in A is printable.
+;;; Input: Accumulator
+;;; Output: C - Clear if printable, Set if not printable
+;;; ----------------------------------------------------------------------
+
+PRTBLE:	CMP	#$20		; < space?
+	BCC	@fail		; It's not printable
+	CMP	#$127		; < DEL?
+	BCC	@succ		; Yes, it's printable.
+	;; Fall through to failure
+@fail:	SEC
+@succ:	RTS
 
 ;;; ----------------------------------------------------------------------
 ;;; Convert a single ASCII hex character to an unsigned int
