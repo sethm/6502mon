@@ -412,11 +412,12 @@ PRANGE:
 	;; contents of memory between [OPBASE,OPBASE+1] and
 	;; [OPBASE+2,OPBASE+3]
 
-@start:	JSR	PRADDR		; Print the current address
-@loop:	LDA	(OPADDRL,X)
-	JSR	PR1B
+@start:	JSR	PRADDR		; Print the starting address
+@loop:	LDA	(OPADDRL,X)	; Grab the contents of OPADDRL,H
+	JSR	PR1B		; Print it
 
-	;; Are we at the end of the range?
+	;; After printing each byte, check to see if we're at the end
+	;; of the range. If we are, we're done. Otherwise, continue.
 	LDA	OPBASE+3	; Compare high
 	CMP	OPADDRH
 	BNE	@next
@@ -424,18 +425,22 @@ PRANGE:
 	CMP	OPADDRL
 	BEQ	@done
 
+	;; Now we increment OPADDRL,H so we can get the next location
+	;; in memory.
 @next:	INC	OPADDRL		; Read next location in memory.
-	BNE	@skip		; If L was incremented to 00,
+	BNE	@endck		; If L was incremented to 00,
 	INC	OPADDRH		;   inc H too.
-@skip:	;; Insert a carriage return and print
-	;; next address if needed.
-	LDA	OPADDRL
+
+	;; Now we check to see if we're at the end of a line. We want
+	;; to insert a carriage return after every address which ends
+	;; in F (e.g. 100F, 3F, 1F0F, whatever) so we get consistent
+	;; starting addresses along the left-hand side of the
+	;; terminal.
+@endck:	LDA	OPADDRL
 	AND	#$0F
 	BNE	@loop		; No CRLF/ADDR needed
 	CRLF
-	JSR	PRADDR
-	LDY	#$10
-	JMP	@loop
+	JMP	@start		; Restart at new address.
 
 @done:
 	JMP	EVLOOP
