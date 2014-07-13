@@ -71,6 +71,7 @@
 	CR	= $0A
 	LF	= $0D
 	BS	= $08
+	IBMAX	= $40		; Maxiumum length of input buffer
 
 	PROMPT	= '*'
 
@@ -143,13 +144,16 @@ EVLOOP:	CRLF
 	;; input buffer, and then echoed to the screen.
 	;;
 	;; This routine uses Y as the IBUF pointer.
-NXTCHR:	JSR	CIN		; Get a character
+NXTCHR:	JSR	CIN		; Get a character.
+	BEQ	BSPACE
 	CMP	#CR		; Is it a carriage-return?
 	BEQ	PARSE		; Done. Parse buffer.
 	CMP	#LF		; Is it a line-feed?
 	BEQ	PARSE		; Done. Parse buffer.
 	CMP	#BS		; Is it a backspace?
 	BEQ	BSPACE		; Yes, handle it.
+	CPY	#IBMAX		; Is the buffer full?
+	BEQ	NXTCHR		; Yes, ignore it, don't even echo.
 	;; It wasn't a CR,LF, or BS
 	JSR	COUT		; Echo it
 	STA	IBUF,Y		; Store the character into $200,Y
