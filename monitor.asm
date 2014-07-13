@@ -281,7 +281,7 @@ HIBCHK:	LDA	TKCNT		; If TKCNT is > 2, we can skip
 
 TKDONE:	INC	TKCNT		; Increment the count of tokens parsed
 
-	CMP	#$0F		; Have we hit our maximum # of
+	CMP	#$10		; Have we hit our maximum # of
 				;    operands? (16 max)
 	BCS	EXEC		; Yes, we're absolutely done, no more.
 
@@ -351,16 +351,37 @@ EXDEP:	LDA	OPBASE		; Transfer the address we want to load
 	JMP	EVLOOP		; Done.
 
 ;;; DEPOSIT command
-DEP:	LDA	TKCNT
-	CMP	#$02
-	BCC	@err
-	LDA	OPBASE+2	; Grab the data to store
+DEP:	LDA	TKCNT		; We need at least 2 arguments
+	CMP	#$02		;   (but more is OK)
+	BCC	@err		; If not, error out.
+
+	;; Now we enter a loop, parsing each argument from
+	;; OPBASE+2 to OPBASE+TKCNT
+	LDY	#$02
+	DEC	TKCNT
+	LDA	OPBASE,Y
+	STA	(OPADDRL,X)
+	INY
+	INY
+	INC	OPADDRL
+	BNE	@loop
+	INC	OPADDRH
+@loop:	LDA	OPBASE,Y	; Grab the data to store
 	STA	(OPADDRL,X)	; Store it
+	INY
+	DEC	TKCNT
+	BEQ	@done
+	INC	OPADDRL
+	BNE	@loop
+	INC	OPADDRH
+	JMP	@loop
+
+
 	;; We don't print anything back to the console on deposit
 	;; because we want to make it easy to pipe in data from a
 	;; serial console. All we do is jump back and print the prompt
 	;; again. Silence means success.
-	JMP	EVLOOP		; Done.
+@done:	JMP	EVLOOP		; Done.
 @err:	CRLF
 	JSR	PERR
 	JMP	EVLOOP
