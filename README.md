@@ -23,9 +23,11 @@ type `make`!
   argument, which will automatically increment the previously
   used Examine or Deposit address. e.g.:
 
+```
      *D 0300 01   ; Deposit "01" to 0x0300
      *D / 02      ; Deposit "02" to 0x0301
      *D / 03      ; Deposit "03" to 0x0302
+```
 
 ## 4.0 License
 
