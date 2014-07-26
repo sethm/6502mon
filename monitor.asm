@@ -49,20 +49,20 @@
 ;;; Memory Definitions
 ;;; ----------------------------------------------------------------------
 
-	STRLO	= $20		; Low byte of STRING (used by STR macro)
-	STRHI	= $21		; Hi byte of STRING (used by STR macro)
-	HTMP	= $23		; Hex parsing temp
-	OPADDRL = $25		; Addr of current operand (low)
-	OPADDRH	= $26		; Addr of current operand (high)
+	STRLO	= $de		; Low byte of STRING (used by STR macro)
+	STRHI	= $df		; Hi byte of STRING (used by STR macro)
+	HTMP	= $e0		; Hex parsing temp
+	OPADDRL = $e1		; Addr of current operand (low)
+	OPADDRH	= $e2		; Addr of current operand (high)
 
-	OPBYT	= $0200		; # of bytes parsed in 16-bit operands
-	TKCNT	= $0201		; Count of parsed tokens
-	IBLEN	= $0202		; Input buffer length
-	CMD	= $0203		; Last parsed command
-	TKST	= $0204		; Token start pointer
-	TKND	= $0205		; Token end pointer
-	OPBASE	= $0206		; Operand base
-	IBUF	= $0220		; Input buffer base
+	OPBYT	= $02a0		; # of bytes parsed in 16-bit operands
+	TKCNT	= $02a1		; Count of parsed tokens
+	IBLEN	= $02a2		; Input buffer length
+	CMD	= $02a3		; Last parsed command
+	TKST	= $02a4		; Token start pointer
+	TKND	= $02a5		; Token end pointer
+	OPBASE	= $02a6		; Operand base
+	IBUF	= $02c0		; Input buffer base
 
 ;;; ----------------------------------------------------------------------
 ;;; Constants
@@ -111,12 +111,12 @@ IOINIT: LDA	#$1D		; Set ACIA to 8N1, 9600 baud
 	;; Hard Reset. Initialize page 2.
 	;;
 HRESET:	LDA	#$02		; Clear page 2
-	STA	$01
-	LDA	#$00
-	STA	$00
+	STA	STRHI		;   (We're borrowing STRHI,STRLO here
+	LDA	#$00		;    just becuase it's convenient and
+	STA	STRLO		;    they're not being used right now)
 	TAY			; Pointer into page 2
 @loop:	DEY
-	STA	($00),Y
+	STA	(STRLO),Y
 	BNE	@loop
 
 	;; Start the monitor by printing a welcome message.
