@@ -306,8 +306,8 @@ EXEC:	LDX	#$00		; Reset X
 	CMP	#'D'
 	BEQ	@nolf
 	CRLF			; CRLF (unless the command is DEP)
-@nolf:	LDA	CMD		; Have toerr reload CMD, CRLF will mess
-				; with it
+@nolf:	LDA	CMD		; Have to reload CMD, CRLF will mess
+				;    with it.
 	CMP	#'H'		; Help requires no arguments,
 	BEQ	HELP		;    so comes first.
 
@@ -321,9 +321,13 @@ EXEC:	LDX	#$00		; Reset X
 	BEQ	EXDEP
 	CMP	#'G'
 	BEQ	GO
-
 	;; No idea what to do, fall through
-@err:	JSR	PERR
+
+@err:	LDA	CMD		; More spaghetti code to deal with the
+	CMP	#'D'		;    missing CRLF if the command was 'D',
+	BNE	@nolf2		;    vs. all other commands.
+	CRLF
+@nolf2:	JSR	PERR
 	JMP	EVLOOP
 
 ;;; HELP command
