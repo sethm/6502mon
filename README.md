@@ -1,7 +1,8 @@
 # Loomcom 6502 ROM Monitor
 
-**Version:** 0.1-alpha  
-**Last Updated:** July 1, 2014
+**Version:** 1.0
+
+**Last Updated:** July 27, 2014
 
 ## 1.0 About
 
@@ -15,9 +16,6 @@ Assembled with [CA65] (http://www.cc65.org/doc/ca65.html). Just
 type `make`!
 
 ## 3.0 To Do
-
-- Implement 'Q' command that will jump to a pre-defined QUIT
-  routine, e.g. to jump back to BASIC from the monitor.
 
 - Enhance the 'E' and 'D' commands to take '/' as the first
   argument, which will automatically increment the previously
@@ -34,3 +32,9 @@ type `make`!
 This project is free software. It is distributed under the MIT
 License. Please see the file 'COPYING' for full details of the
 license.
+
+## 5.0 Acknowledgements
+
+Enhanced 6502 BASIC (EhBASIC, contained entirely in the file
+"basic.asm") is Version 2.22, and is copyright (c) Lee Davison.
+It is distributed for non-commercial use only!

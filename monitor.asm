@@ -107,7 +107,7 @@
 ;;; Main ROM Entry Point
 ;;; ----------------------------------------------------------------------
 
-START:	CLI
+MSTART:	CLI
 	CLD
 	LDX	#$FF		; Init stack pointer to $FF
 	TXS
@@ -138,8 +138,15 @@ VECS:	LDA	LABVEC-1,Y
 	DEY
 	BNE	VECS
 
+	;; Now jump to BASIC
+	JMP	LAB_COLD
+
+;;; ----------------------------------------------------------------------
+;;; Welcome the User to the Monitor
+;;; ----------------------------------------------------------------------
+
 	;; Start the monitor by printing a welcome message.
-	STR	BANNR
+WELCM:	STR	BANNR
 
 ;;; ----------------------------------------------------------------------
 ;;; Main Eval Loop - Get input, act on it, and return here.
@@ -163,7 +170,8 @@ EVLOOP:	CRLF
 	;; input buffer, and then echoed to the screen.
 	;;
 	;; This routine uses Y as the IBUF pointer.
-NXTCHR:	JSR	CIN		; Get a character.
+NXTCHR:	JSR	CIN		; Get a character, blocking until Carry
+	BCC	NXTCHR		;    is set.
 	BEQ	BSPACE
 	CMP	#CR		; Is it a carriage-return?
 	BEQ	PARSE		; Done. Parse buffer.
@@ -329,6 +337,8 @@ EXEC:	LDX	#$00		; Reset X
 				;    with it.
 	CMP	#'H'		; Help requires no arguments,
 	BEQ	HELP		;    so comes first.
+	CMP	#'Q'		; 'Quit' just jumps to BASIC warm
+	BEQ	QUIT			; start
 
 	LDA	TKCNT		; Now we check operand count.
 	BEQ	@err		; No operands? Error.
@@ -352,6 +362,9 @@ EXEC:	LDX	#$00		; Reset X
 ;;; HELP command
 HELP:	STR	HELPS
 	JMP	EVLOOP
+
+;;; QUIT command
+QUIT:	JMP	LAB_1274	; BASIC Warm Start.
 
 ;;; GO command
 GO:	JMP	(OPBASE)	; Just jump to the appropriate address
@@ -617,9 +630,12 @@ COUT:	PHA			; Save accumulator
 ;;; Read a character from the ACIA and put it into the accumulator
 ;;; ----------------------------------------------------------------------
 
+	;; Rather ugly, but Enhanced BASIC requires this subroutine to
+	;; return immediately rather than block polling for data, so...
+
 CIN:	LDA	IOST
 	AND	#$08		; Is RX register full?
-	BEQ	CIN		; No, wait for it to fill up.
+	BEQ	@nochr		; No, wait for it to fill up.
 	LDA	IORW		; Yes, load character.
 	;;
 	;; If the char is 'a' to 'z', inclusive, mask to upper case.
@@ -631,6 +647,8 @@ CIN:	LDA	IOST
 	AND	#$5f		; No, convert lower case -> upper case,
 @done:	SEC			; Flag byte received, for BASIC
 	RTS			; and return.
+@nochr:	CLC
+	RTS
 
 ;;; ----------------------------------------------------------------------
 ;;; Print the null-terminated string located at STRLO,STRHI
@@ -672,6 +690,6 @@ HELPS:	.byte	"COMMANDS ARE:",CR,LF
 .segment    "VECTORS"
 
 	.org	$FFFA
-	.word	START		; NMI vector
-	.word	START		; Reset vector
-	.word	START		; IRQ vector
+	.word	MSTART		; NMI vector
+	.word	MSTART		; Reset vector
+	.word	MSTART		; IRQ vector
