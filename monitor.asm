@@ -5,6 +5,16 @@
 ;;; Last Updated: 2014-JUL-03
 ;;;
 
+	.feature labels_without_colons
+	.include "basic.asm"
+
+;;;************************************************************************
+;;; Enhanced 6502 BASIC Integration
+;;;************************************************************************
+
+	IRQ_vec = VEC_SV + 2
+	NMI_vec = IRQ_vec + $0A
+
 ;;;************************************************************************
 ;;; Macro Definitions.
 ;;;************************************************************************
@@ -42,8 +52,6 @@
 ;;; Non-monitor code, e.g. BASIC, utilities, etc., resides
 ;;; in the bottom 14KB of ROM
 ;;;************************************************************************
-.segment "CODE"
-	.org	$C000
 
 ;;; ----------------------------------------------------------------------
 ;;; Memory Definitions
@@ -84,6 +92,11 @@
 	IOCMD	= IORW+2	; ACIA command register
 	IOCTL	= IORW+3	; ACIA control register
 
+.segment "CODE"
+	.org	$C000
+
+	;; BASIC lives here.
+
 ;;;************************************************************************
 ;;; ROM monitor code resides in the top 2KB of ROM
 ;;;************************************************************************
@@ -118,6 +131,12 @@ HRESET:	LDA	#$02		; Clear page 2
 @loop:	DEY
 	STA	(STRLO),Y
 	BNE	@loop
+
+	;; Set up vectors for BASIC.
+VECS:	LDA	LABVEC-1,Y
+	STA	VEC_IN-1,Y
+	DEY
+	BNE	VECS
 
 	;; Start the monitor by printing a welcome message.
 	STR	BANNR
@@ -610,8 +629,8 @@ CIN:	LDA	IOST
 	CMP	#'{'		; >= '{'?
 	BCS	@done		; Yes, done.
 	AND	#$5f		; No, convert lower case -> upper case,
-@done:	RTS			; and return.
-
+@done:	SEC			; Flag byte received, for BASIC
+	RTS			; and return.
 
 ;;; ----------------------------------------------------------------------
 ;;; Print the null-terminated string located at STRLO,STRHI
@@ -625,10 +644,21 @@ STOUT:	LDY	#$00		; Initialize string pointer
 	BNE	@loop		; Continue
 @done:	RTS			; Return
 
+STUB_SAVE:
+STUB_LOAD:
+	RTS
+
 ;;; ----------------------------------------------------------------------
 ;;; Data
 ;;; ----------------------------------------------------------------------
 
+;;; Vectors used by EhBASIC
+LABVEC:	.word	CIN
+	.word	COUT
+	.word	STUB_SAVE
+	.word	STUB_LOAD
+
+;;; Strings
 BANNR:	.byte	"RETROCHALLENGE 2014 ROM MONITOR",0
 HELPS:	.byte	"COMMANDS ARE:",CR,LF
 	.byte	"H                             HELP",CR,LF
