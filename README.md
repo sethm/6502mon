@@ -7,12 +7,12 @@
 ## 1.0 About
 
 This project contains an experimental 6502 ROM monitor being developed
-for the [Symon 6502 Simulator] (http://github.com/sethm/symon) and
+for the [Symon 6502 Simulator](http://github.com/sethm/symon) and
 associated hardware.
 
 ## 2.0 Assembly
 
-Assembled with [CA65] (http://www.cc65.org/doc/ca65.html). Just
+Assembled with [CA65](http://www.cc65.org/doc/ca65.html). Just
 type `make`!
 
 ## 3.0 To Do
